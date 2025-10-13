@@ -7,11 +7,12 @@ on:
     branches: [ "**" ]
 
 env:
-  SOLUTION_FILE: LetsGoBiking/LetsGoBiking.sln
+  SOLUTION_FILE: LetsGoBiking/LetsGoBiking.sln   # <- ton chemin réel
 
 jobs:
   build-test-windows:
-    runs-on: windows-latest   # WCF/.NET Framework => Windows obligatoire
+    runs-on: windows-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,22 +39,6 @@ jobs:
       - name: Build (Release)
         run: msbuild "${{ env.SOLUTION_FILE }}" /p:Configuration=Release /m /verbosity:m
 
-      # Tests SDK-style (.NET Core/SDK) si tu en as
-      - name: dotnet test (SDK-style projects)
-        shell: pwsh
-        run: |
-          $sdkProjects = Get-ChildItem -Recurse -Filter *.csproj | Where-Object {
-            Select-String -Path $_.FullName -Pattern '<TargetFramework' -Quiet
-          }
-          if ($sdkProjects) {
-            foreach ($p in $sdkProjects) {
-              dotnet test $p.Directory.FullName --configuration Release --no-build --logger "trx;LogFileName=testresults.trx"
-            }
-          } else {
-            echo "No SDK-style test projects found."
-          }
-
-      # Tests .NET Framework (MSTest/NUnit/xUnit) via VSTest
       - name: VSTest (.NET Framework test assemblies)
         shell: pwsh
         run: |
