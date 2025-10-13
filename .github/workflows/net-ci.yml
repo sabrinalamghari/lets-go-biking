@@ -1,0 +1,65 @@
+name: .NET CI
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+env:
+  SOLUTION_FILE: LetsGoBiking/LetsGoBiking.sln   # <- ton chemin réel
+
+jobs:
+  build-test-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup NuGet
+        uses: NuGet/setup-nuget@v2
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~\AppData\Local\NuGet\Cache
+            ~\AppData\Local\NuGet\v3-cache
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.config', '**/*.csproj', '**/*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: NuGet restore (packages.config & SDK)
+        run: nuget restore "${{ env.SOLUTION_FILE }}"
+
+      - name: Build (Release)
+        run: msbuild "${{ env.SOLUTION_FILE }}" /p:Configuration=Release /m /verbosity:m
+
+      - name: VSTest (.NET Framework test assemblies)
+        shell: pwsh
+        run: |
+          $testDlls = Get-ChildItem -Recurse -Path . -Include *test*.dll,*tests*.dll | Where-Object {
+            $_.FullName -match '\\bin\\Release\\' -and $_.FullName -notmatch '\\ref\\'
+          }
+          if ($testDlls) {
+            $vstest = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\IDE\Extensions\TestPlatform\vstest.console.exe"
+            if (-not (Test-Path $vstest)) {
+              $vstest = "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\IDE\Extensions\TestPlatform\vstest.console.exe"
+            }
+            & "$vstest" $testDlls.FullName
+          } else {
+            echo "No .NET Framework test assemblies found."
+          }
+
+      - name: Publish build artifacts (optionnel)
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: drop
+          path: |
+            **/bin/Release/**
+            !**/*.pdb
