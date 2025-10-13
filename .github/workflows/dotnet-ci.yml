@@ -7,7 +7,7 @@ on:
     branches: [ "**" ]
 
 env:
-  SOLUTION_FILE: YourSolution.sln   # <--- ⚠️ remplace par le nom réel de ta .sln
+  SOLUTION_FILE: LetsGoBiking.sln
 
 jobs:
   build-test-windows:
