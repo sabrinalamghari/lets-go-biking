@@ -192,7 +192,7 @@ Inversement, si on reçoit directement des coordonnées, il les renvoie telles q
 Il utilise :
 L’API Nominatim d’OpenStreetMap (gratuite, publique),
 Il envoie les requêtes HTTP, lit le JSON renvoyé, et extrait les valeurs lat / lon.
-C’est donc ton pont entre des adresses humaines et des coordonnées GPS utilisables par OSRM.
+C’est donc le pont entre des adresses humaines et des coordonnées GPS utilisables par OSRM.
 
 ### OsrmClient.cs
 C’est le client pour le moteur d’itinéraire OSRM (Open Source Routing Machine).
@@ -236,3 +236,296 @@ Cela évite de répéter les mêmes constantes dans plusieurs fichiers et facili
 </body></html><!--EndFragment-->
 </body>
 </html>
+
+
+# Communication Proxy ↔ RoutingService (avec cache)
+
+## 🎯 Objectif
+Connecter le **RoutingService** au **ProxyCacheService** via SOAP afin que toutes les requêtes externes (ex : JCDecaux) passent par le proxy et bénéficient du cache `MemoryCache`.
+
+---
+
+## ⚙️ Implémentation réalisée
+
+### 🔸 1. Ajout du client SOAP dans `RoutingServiceLib`
+
+Création de la classe `Clients/ProxyClient.cs` :
+
+```csharp
+using System;
+using System.ServiceModel;
+using System.ServiceModel.Channels;
+
+namespace RoutingServiceLib.Clients
+{
+    [ServiceContract]
+    public interface IProxyService
+    {
+        [OperationContract]
+        string Get(string url);
+    }
+
+    public class ProxyClient
+    {
+        private readonly string _endpointUrl;
+        private readonly Binding _binding;
+        private readonly EndpointAddress _endpoint;
+
+        public ProxyClient(string endpointUrl = "http://localhost:9001/ProxyService")
+        {
+            _endpointUrl = endpointUrl;
+            _binding = new BasicHttpBinding
+            {
+                MaxReceivedMessageSize = 10_000_000, // 10 Mo
+                MaxBufferSize = 10_000_000,
+                MaxBufferPoolSize = 10_000_000
+            };
+            _endpoint = new EndpointAddress(_endpointUrl);
+        }
+
+        public string Get(string url)
+        {
+            var factory = new ChannelFactory<IProxyService>(_binding, _endpoint);
+            var ch = factory.CreateChannel();
+            try
+            {
+                string res = ch.Get(url);
+                ((IClientChannel)ch).Close();
+                factory.Close();
+                return res;
+            }
+            catch
+            {
+                ((IClientChannel)ch).Abort();
+                factory.Abort();
+                throw;
+            }
+        }
+    }
+}
+````
+
+---
+
+### 🔸 2. Utilisation du Proxy dans `JcDecauxClient`
+
+```csharp
+using RoutingServiceLib.Clients;
+using System.Web.Script.Serialization;
+
+public class JcDecauxClient
+{
+    private static readonly ProxyClient _proxy = new ProxyClient("http://localhost:9001/ProxyService");
+
+    public static List<JcStation> GetStations(string contract = "Lyon")
+    {
+        var list = new List<JcStation>();
+        try
+        {
+            var url = $"{Constants.JCDECAUX}/stations?contract={Uri.EscapeDataString(contract)}&apiKey={Constants.JCDECAUX_KEY}";
+            Console.WriteLine($"[JCDecaux] Fetching via Proxy: {url}");
+
+            // ✅ Appel via ProxyCacheService
+            var json = _proxy.Get(url);
+            var rows = new JavaScriptSerializer().Deserialize<object[]>(json);
+            Console.WriteLine($"[JCDecaux] raw stations = {rows?.Length ?? 0}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[JCDecaux] Error: {ex.Message}");
+        }
+
+        return list;
+    }
+}
+```
+
+---
+
+### 🔸 3. Configuration du Proxy (`ProxyCacheService`)
+
+Dans `Program.cs` :
+
+```csharp
+var binding = new BasicHttpBinding
+{
+    MaxReceivedMessageSize = 10_000_000,
+    MaxBufferSize = 10_000_000,
+    MaxBufferPoolSize = 10_000_000
+};
+
+host.AddServiceEndpoint(typeof(IProxyService), binding, "");
+```
+
+---
+
+## 🧪 Tests effectués
+
+### Lancement du ProxyCacheService (en administrateur)
+
+```
+ProxyCacheService started at http://localhost:9001/ProxyService
+Press ENTER to stop...
+```
+
+### Lancement du RoutingHost
+
+```
+RoutingService REST démarré !
+Test : http://localhost:9002/route?from=Paris&to=Lyon
+```
+
+### Appel du service REST
+
+* Première requête → `[Cache MISS]`
+* Deuxième requête (même URL, dans les 30s) → `[Cache HIT]`
+
+**Console du Proxy :**
+
+```
+[Cache MISS] Fetching https://api.jcdecaux.com/vls/v3/stations?contract=Lyon&apiKey=...
+[Cache HIT] https://api.jcdecaux.com/vls/v3/stations?contract=Lyon&apiKey=...
+```
+
+**Console du RoutingService :**
+
+```
+[Route] fetching JCDecaux stations for Lyon.
+[JCDecaux] Fetching via Proxy: https://api.jcdecaux.com/vls/v3/stations?contract=Lyon...
+[JCDecaux] raw stations = 350
+[Route] stations fetched = 350
+```
+
+✅ **Communication Proxy ↔ Routing validée.**
+Les appels REST passent bien par le proxy et bénéficient du cache `MemoryCache`.
+
+---
+
+## ⚠️ Problèmes rencontrés et solutions
+
+| Problème                                                      | Cause                                                                                    | Solution                                                                                                                             |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `Le quota de taille maximale autorisée (65536) a été dépassé` | Taille du message JCDecaux trop grande pour le binding par défaut                        | Augmentation de `MaxReceivedMessageSize`, `MaxBufferSize`, `MaxBufferPoolSize` à 10 Mo dans **ProxyCacheService** et **ProxyClient** |
+| `[Cache HIT]` jamais visible lors des tests VS                | Le cache est perdu car Visual Studio relance le Proxy à chaque exécution (mémoire vidée) | Lancer le **ProxyCacheService.exe manuellement**, puis le **RoutingHost** séparément                                                 |
+| `AddressAccessDeniedException` au lancement manuel            | Droits insuffisants pour réserver l’URL HTTP                                             | Lancer `.exe` **en administrateur** ou exécuter :<br>`netsh http add urlacl url=http://+:9001/ProxyService user=NOM_UTILISATEUR` |
+
+---
+
+## Bonnes pratiques retenues
+
+* Utiliser un **Proxy générique** pour centraliser les appels HTTP.
+* Implémenter le **cache mémoire (MemoryCache)** pour réduire la charge des APIs externes.
+* Configurer les **bindings WCF** avec des tailles de message adaptées.
+* Lancer les serveurs **sans Visual Studio** via leurs `.exe` (exigence du sujet).
+
+---
+
+# Lancement manuel des serveurs (.exe)
+
+## Objectif
+
+Pouvoir exécuter les serveurs **ProxyCacheService** et **RoutingHost** sans ouvrir Visual Studio,
+comme exigé dans le projet (*auto-hébergement*).
+
+---
+
+## Étapes de lancement
+
+### 1. Compiler la solution
+
+Dans Visual Studio :
+**Build → Générer la solution** (`Ctrl + Shift + B`)
+
+Les exécutables seront générés dans :
+
+```
+ProxyCacheService\bin\Debug\
+RoutingHost\bin\Debug\
+```
+
+---
+
+### 2. Lancer le ProxyCacheService
+
+1. Ouverture de l’Explorateur de fichiers :
+   `ProxyCacheService\bin\Debug\`
+2. **Clic droit → Exécuter en tant qu’administrateur** sur
+   `ProxyCacheService.exe`
+3. On devrait voir :
+
+   ```
+   ProxyCacheService started at http://localhost:9001/ProxyService
+   Press ENTER to stop...
+   ```
+
+💡 Si une erreur `AddressAccessDeniedException` apparaît :
+
+* Soit on relance **en administrateur**,
+* Soit on exécute une seule fois cette commande dans un **invite de commandes administrateur** :
+
+  ```bash
+  netsh http add urlacl url=http://+:9001/ProxyService user=NOM_UTILISATEUR
+  ```
+
+---
+
+### 3. Lancer le RoutingHost
+
+Dans un **nouvel onglet de terminal** ou via double-clic :
+
+```
+RoutingHost\bin\Debug\RoutingHost.exe
+```
+
+On verra :
+
+```
+RoutingService REST démarré !
+Test : http://localhost:9002/route?from=Paris&to=Lyon
+Appuyez sur Entrée pour arrêter...
+```
+
+---
+
+### 4. Tester la communication
+
+Ouvrir le navigateur et accéder à (un test) :
+
+```
+http://localhost:9002/route?from=Paris&to=Lyon
+```
+
+🧩 **Console Proxy :**
+
+```
+[Cache MISS] Fetching https://api.jcdecaux.com/vls/v3/stations?contract=Lyon...
+[Cache HIT] https://api.jcdecaux.com/vls/v3/stations?contract=Lyon...
+```
+
+🧩 **Console Routing :**
+
+```
+[Route] fetching JCDecaux stations for Lyon.
+[JCDecaux] raw stations = 350
+[Route] stations fetched = 350
+```
+
+---
+
+## 🧾 Résumé rapide
+
+| Étape | Action                                      | Port   | Type         |
+| ----- | ------------------------------------------- | ------ | ------------ |
+| 1     | Lancer `ProxyCacheService.exe`              | `9001` | SOAP         |
+| 2     | Lancer `RoutingHost.exe`                    | `9002` | REST         |
+| 3     | Accéder à `http://localhost:9002/route?...` | -      | Test complet |
+
+---
+
+## ✅ Bonnes pratiques
+
+* Toujours lancer le **Proxy avant le Routing**.
+* Laisser la console du Proxy ouverte pour observer les `[Cache HIT] / [Cache MISS]`.
+* Utiliser les `.exe` pour la **démonstration finale** : c’est ce que demandent les consignes du projet.
+
+```
