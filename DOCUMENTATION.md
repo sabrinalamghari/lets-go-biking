@@ -116,3 +116,27 @@ Test terminé. Appuyez sur Entrée pour quitter.
 1. Intégrer le proxy dans le `RoutingService` (remplacer `ProxySmokeTest`)
 2. Utiliser un client SOAP (`ChannelFactory<IProxyService>`) dans le endpoint `/route`
 3. Supprimer `ProxySmokeTest` une fois l’intégration validée
+
+
+MemoryCache intégré dans ProxyService
+Logs [Cache HIT]/[Cache MISS] fonctionnels
+Tests réalisés via ProxySmokeTest (API ipify)
+TTL = 30s
+
+<html>
+<body>
+<!--StartFragment--><html><head></head><body>
+<hr>
+<h3>Ajouter la logique de cache dans ProxyService</h3>
+
+Élément de l’issue | Implémenté ? | Où ça se trouve
+-- | -- | --
+Ajout du cache MemoryCache | ✅ | `ProxyService.cs` → `private readonly MemoryCache _cache = MemoryCache.Default;`
+Stockage des réponses HTTP | ✅ | `_cache.Add(url, result, DateTimeOffset.Now.AddSeconds(30));`
+Logs HIT/MISS | ✅ | `Console.WriteLine($"[Cache HIT] {url}");` et `Console.WriteLine($"[Cache MISS] Fetching {url}");`
+
+
+<hr>
+</body></html><!--EndFragment-->
+</body>
+</html>
