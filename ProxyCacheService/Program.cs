@@ -15,7 +15,14 @@ namespace ProxyCacheService
             Uri baseAddress = new Uri("http://localhost:9001/ProxyService");
             using (ServiceHost host = new ServiceHost(typeof(ProxyService), baseAddress))
             {
-                host.AddServiceEndpoint(typeof(IProxyService), new BasicHttpBinding(), "");
+                var binding = new BasicHttpBinding
+                {
+                    MaxReceivedMessageSize = 10_000_000, // 5 Mo
+                    MaxBufferSize = 10_000_000,
+                    MaxBufferPoolSize = 10_000_000
+                };
+
+                host.AddServiceEndpoint(typeof(IProxyService), binding, "");
 
                 // exposer le WSDL/MEX pour les tests
                 var smb = new ServiceMetadataBehavior { HttpGetEnabled = true, HttpGetUrl = baseAddress };
