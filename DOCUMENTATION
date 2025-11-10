@@ -1,0 +1,118 @@
+**Récap – Mise en place du service ProxyCacheService**
+
+**Étapes réalisées :**
+**Ajout d’un nouveau projet à la solution : ProxyCacheService**
+→ Type : Application Console (.NET Framework 4.7.2)
+
+**Ajout des références nécessaires :**
+- System.ServiceModel (pour le WCF)
+- System.Runtime.Caching (pour le cache mémoire)
+
+**Création des 3 fichiers principaux :**
+- IProxyService.cs → interface WCF (contrat du service)
+- ProxyService.cs → implémentation avec HttpClient + MemoryCache
+- Program.cs → point d’entrée avec configuration self-host du service
+
+**Configuration du service :**
+- Base address : http://localhost:9001/ProxyService
+- Binding : BasicHttpBinding
+- Cache TTL par défaut : 30 secondes
+- Défini ProxyCacheService comme projet de démarrage
+
+Lancement du serveur :
+Console affiche :
+``` 
+ProxyCacheService started at http://localhost:9001/ProxyService
+Press ENTER to stop...
+```
+Important : lancer Visual Studio en Administrateur (nécessaire pour enregistrer l’URL HTTP).
+Le serveur WCF est auto-hébergé et accessible à l’adresse
+http://localhost:9001/ProxyService
+(prêt à être appelé depuis le futur RoutingService ou un client SOAP)
+
+
+
+## Étape : Validation du ProxyCacheService (test de communication)
+
+### Objectif
+
+Vérifier que le service WCF `ProxyCacheService` fonctionne correctement et met en cache les réponses des appels HTTP externes.
+
+---
+
+### Configuration réalisée
+
+* **Projet :** `ProxyCacheService` (.NET Framework 4.7.2)
+* **Fichiers :**
+
+  * `IProxyService.cs` → contrat WCF exposant la méthode `Get(string url)`
+  * `ProxyService.cs` → implémentation du service avec `HttpClient` et `MemoryCache`
+  * `Program.cs` → auto-hébergement du service via `ServiceHost`
+* **Adresse de base du service :** `http://localhost:9001/ProxyService`
+* **Durée de vie du cache (TTL) :** 30 secondes
+* **Exécution :** Visual Studio en administrateur
+
+---
+
+### Test du service (ProxySmokeTest)
+
+* Création d’un second projet : `ProxySmokeTest` (Application console .NET Framework)
+* Référence ajoutée : `System.ServiceModel`
+* Objectif : jouer le rôle du futur `RoutingService` pour tester la communication SOAP.
+
+#### Code du client
+
+```csharp
+var binding = new BasicHttpBinding();
+var endpoint = new EndpointAddress("http://localhost:9001/ProxyService");
+var factory = new ChannelFactory<IProxyService>(binding, endpoint);
+var proxy = factory.CreateChannel();
+
+var url = "https://api.ipify.org?format=json";
+Console.WriteLine(proxy.Get(url));
+```
+
+---
+
+### Résultat attendu
+
+#### Console **ProxyCacheService**
+
+```
+ProxyCacheService started at http://localhost:9001/ProxyService
+Press ENTER to stop...
+[Cache MISS] Fetching https://api.ipify.org?format=json
+[Cache HIT] https://api.ipify.org?format=json
+```
+
+#### Console **ProxySmokeTest**
+
+```
+Requête 1...
+{"ip":"46.xxx.xxx.xxx"}
+
+Requête 2 (cache)...
+{"ip":"46.xxx.xxx.xxx"}
+
+Test terminé. Appuyez sur Entrée pour quitter.
+```
+
+✅ Le premier appel obtient la donnée depuis Internet (**MISS**)
+✅ Le second appel renvoie la même donnée depuis le cache (**HIT**)
+
+---
+
+### Conclusion
+
+* `ProxyCacheService` est **opérationnel** et auto-hébergé
+* La **communication SOAP** entre deux projets fonctionne
+* La **mise en cache MemoryCache** est fonctionnelle
+* Le proxy est prêt à être intégré au `RoutingService`
+
+---
+
+### Prochaines étapes
+
+1. Intégrer le proxy dans le `RoutingService` (remplacer `ProxySmokeTest`)
+2. Utiliser un client SOAP (`ChannelFactory<IProxyService>`) dans le endpoint `/route`
+3. Supprimer `ProxySmokeTest` une fois l’intégration validée
