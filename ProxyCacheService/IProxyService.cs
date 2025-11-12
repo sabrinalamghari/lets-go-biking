@@ -10,7 +10,10 @@ namespace ProxyCacheService
     [ServiceContract] // indique qu’on définit un contrat WCF
     public interface IProxyService
     {
-        [OperationContract] // indique que la méthode est exposée au client
-        string Get(string url);
+        [OperationContract] string GetRaw(string url);                     // dt_default
+        [OperationContract] string GetRawTtl(string url, int ttlSeconds);  // now + seconds
+        [OperationContract] string GetRawUntil(string url, DateTimeOffset expiresAt); // fixed date
     }
+
+
 }
