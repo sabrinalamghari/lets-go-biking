@@ -1,0 +1,10 @@
+:host { display: block; }
+.ftr { display: block; background: #fff; border-top: 1px solid #e6e6e6; }
+.inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  color: #444;
+}
+.inner a { color: #007bff; text-decoration: none; }
+.inner a:hover { text-decoration: underline; }

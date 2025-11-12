@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Itinéraire</title>
+  <link rel="stylesheet" href="itinerary.css" />
+</head>
+<body>
+  <app-header></app-header>
+
+  <main class="layout">
+    <aside class="side card">
+      <h2>Itinéraire</h2>
+
+      <form id="routeForm" class="route-form">
+        <div class="field">
+          <div id="lbl-start" class="field-label">Départ</div>
+          <address-autocomplete id="start"
+                                aria-labelledby="lbl-start"
+                                placeholder="Adresse de départ"></address-autocomplete>
+        </div>
+
+        <div class="field">
+          <div id="lbl-end" class="field-label">Arrivée</div>
+          <address-autocomplete id="end"
+                                aria-labelledby="lbl-end"
+                                placeholder="Adresse d'arrivée"></address-autocomplete>
+        </div>
+
+        <div class="actions">
+          <button type="button" id="swapBtn">⇄ Inverser</button>
+          <button type="submit" id="applyBtn">Mettre à jour</button>
+        </div>
+      </form>
+
+      <section class="summary">
+        <h3>Récapitulatif</h3>
+        <p>Départ : <strong id="sum-start">—</strong></p>
+        <p>Arrivée : <strong id="sum-end">—</strong></p>
+      </section>
+    </aside>
+
+    <section class="main card">
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-btn-map" data-tab="map">Carte</button>
+        <button class="tab-btn" id="tab-btn-details" data-tab="details">Détails</button>
+      </div>
+
+      <div class="tab-content" id="tab-map">
+        <div class="map">
+          <iframe id="osmFrame"
+                  style="width:100%; height:60vh; border:0; border-radius:10px;"
+                  src=""
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  allowfullscreen>
+          </iframe>
+          <small style="display:block; margin-top:6px; color:#666">
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+          </small>
+        </div>
+
+      </div>
+
+      <div class="tab-content hidden" id="tab-details">
+        <p>Pour l’instant, on affiche juste départ et arrivée.</p>
+        <ul id="steps"></ul>
+      </div>
+    </section>
+  </main>
+
+  <app-footer></app-footer>
+
+  <script type="module" src="../../Components/header/header.js"></script>
+  <script type="module" src="../../Components/footer/footer.js"></script>
+  <script type="module" src="../../Components/address-autocomplete/address-autocomplete.js"></script>
+
+  <script type="module" src="itinerary.js"></script>
+</body>
+</html>
