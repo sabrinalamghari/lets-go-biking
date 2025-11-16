@@ -528,4 +528,97 @@ http://localhost:9002/route?from=Paris&to=Lyon
 * Laisser la console du Proxy ouverte pour observer les `[Cache HIT] / [Cache MISS]`.
 * Utiliser les `.exe` pour la **démonstration finale** : c’est ce que demandent les consignes du projet.
 
+--- 
+
+## Logging & Gestion des erreurs (Issue #12)
+
+### Objectif
+Centraliser et uniformiser les logs du service Proxy pour remplacer les `Console.WriteLine()` dispersés par un système de logging plus lisible et réutilisable.
+
+---
+
+### Implémentation
+
+#### Classe `Logger.cs`
+Créée dans le dossier `ProxyCacheService`, cette classe statique gère trois niveaux de logs :
+- `Info` → messages informatifs,
+- `Warn` → avertissements,
+- `Error` → erreurs avec affichage en rouge et option de message d’exception.
+
+```csharp
+using System;
+
+namespace ProxyCacheService
+{
+    internal static class Logger
+    {
+        public static void Info(string msg) => Console.WriteLine($"[INFO] {DateTime.Now:HH:mm:ss} {msg}");
+        public static void Warn(string msg) => Console.WriteLine($"[WARN] {DateTime.Now:HH:mm:ss} {msg}");
+        public static void Error(string msg, Exception ex = null)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.WriteLine($"[ERROR] {DateTime.Now:HH:mm:ss} {msg}");
+            if (ex != null) Console.WriteLine($"        → {ex.Message}");
+            Console.ResetColor();
+        }
+    }
+}
+````
+
+---
+
+### Intégration dans `ProxyService.cs`
+
+Les anciens appels à `Console.WriteLine()` ont été remplacés par des appels à `Logger.Info()` ou `Logger.Error()` pour plus de clarté et une meilleure lisibilité dans la console.
+
+Avant :
+
+```csharp
+Console.WriteLine($"[Cache MISS] Fetching {url}");
+```
+
+Après :
+
+```csharp
+Logger.Info($"[Cache MISS] Fetching {url}");
+```
+
+Et pour la gestion des erreurs :
+
+```csharp
+catch (Exception ex)
+{
+    Logger.Error("HTTP Request failed", ex);
+    return $"Error fetching {url}: {ex.Message}";
+}
+```
+
+---
+
+### Exemple de sortie console
+
+```
+[INFO] 14:32:05 [Cache MISS] Fetching https://api.jcdecaux.com/vls/v3/stations?contract=Lyon
+[INFO] 14:32:07 [Cache HIT] Fetching https://api.jcdecaux.com/vls/v3/stations?contract=Lyon
+[ERROR] 14:32:12 HTTP Request failed
+        → The remote server returned an error: (403) Forbidden.
+```
+
+---
+
+### ✅ Résultats obtenus
+
+* Logs homogènes, datés et lisibles.
+* Erreurs colorées pour une meilleure visualisation pendant les tests.
+* Centralisation du code de logging → maintenance facilitée.
+* Aucun changement fonctionnel sur le comportement du Proxy.
+
+---
+
+### 📘 Bonnes pratiques appliquées
+
+* Ne pas laisser de `Console.WriteLine()` dispersés.
+* Préparer la possibilité future d’un logging vers fichier ou d’un niveau `DEBUG`.
+* Lancer les tests en mode console pour visualiser les logs en temps réel.
+
 ```
