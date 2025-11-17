@@ -1,8 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.ServiceModel;
 
 namespace ProxyCacheService
@@ -13,6 +9,7 @@ namespace ProxyCacheService
         [OperationContract] string GetRaw(string url);                     // dt_default
         [OperationContract] string GetRawTtl(string url, int ttlSeconds);  // now + seconds
         [OperationContract] string GetRawUntil(string url, DateTimeOffset expiresAt); // fixed date
+        [OperationContract] string GetStationsJson(string contractName);
     }
 
 
