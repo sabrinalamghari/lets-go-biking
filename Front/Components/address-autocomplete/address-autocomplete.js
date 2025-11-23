@@ -81,19 +81,35 @@ class AddressAutocomplete extends HTMLElement {
   }
   get selection(){ return this._selection; }
 
-  async _search(q) {
-    try {
-      const url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5`;
-      const res = await fetch(url);
-      const data = await res.json();
-      this._items = Array.isArray(data.features) ? data.features : [];
-      if (!this._items.length) this._renderEmpty();
-      else this._renderList();
-    } catch (err) {
-      console.error('[address-autocomplete] fetch error', err);
-      this._renderError();
+    async _search(q) {
+        try {
+            let url = `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(q)}&limit=5`;
+            let res = await fetch(url);
+            let data = await res.json();
+            let items = Array.isArray(data.features) ? data.features : [];
+
+            if (!items.length) {
+                const nUrl =
+                    `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=geojson&limit=5&countrycodes=fr`;
+                const nRes = await fetch(nUrl, {
+                    headers: { "Accept-Language": "fr" }
+                });
+                const nData = await nRes.json();
+                items = Array.isArray(nData.features) ? nData.features.map(f => ({
+                    geometry: f.geometry,
+                    properties: { label: f.properties.display_name }
+                })) : [];
+            }
+
+            this._items = items;
+
+            if (!this._items.length) this._renderEmpty();
+            else this._renderList();
+        } catch (err) {
+            console.error('[address-autocomplete] fetch error', err);
+            this._renderError();
+        }
     }
-  }
 
   _renderLoading(){ this.$list.innerHTML = `<li class="loading">Chargement…</li>`; this._open(); }
   _renderEmpty(){ this.$list.innerHTML = `<li class="empty">Aucun résultat</li>`; this._open(); }

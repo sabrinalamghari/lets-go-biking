@@ -5,19 +5,23 @@ using System.Net.Http;
 using System.Threading;
 using System.Web;
 using System.Web.Script.Serialization;
+using RoutingServiceLib.Clients;
 
 namespace RoutingServiceLib
 {
     internal static class NominatimUtils
     {
         static readonly HttpClient http;
+        static readonly ProxyClient _proxy = new ProxyClient("http://localhost:9001/ProxyService");
 
         static NominatimUtils()
         {
-            http = new HttpClient { Timeout = TimeSpan.FromSeconds(12) };
-            http.DefaultRequestHeaders.UserAgent.ParseAdd("LetsGoBiking/1.0 (+sabrinalmghari@gmail.com)");
-            http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
-            http.DefaultRequestHeaders.AcceptLanguage.ParseAdd("fr-FR");
+            http = new HttpClient();
+
+            http.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "LetsGoBiking/1.0 (sabrinalmghari@gmail.com)");
+
+            http.DefaultRequestHeaders.From = "sabrinalmgharo@gmail.com";
         }
 
         public static LatLng ParseOrGeocode(string q)
@@ -32,21 +36,20 @@ namespace RoutingServiceLib
                 double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var lg))
                 return new LatLng { lat = la, lng = lg };
 
-            var candidates = new[] {
+            var candidates = new[]
+            {
                 q,
                 q.IndexOf("France", StringComparison.OrdinalIgnoreCase) >= 0 ? null : q + ", France",
-                q.Equals("Gare de Lyon", StringComparison.OrdinalIgnoreCase) ? "Gare de Lyon, Paris, France" : null
+                q.Equals("Gare de Lyon", StringComparison.OrdinalIgnoreCase)
+                    ? "Gare de Lyon, Paris, France"
+                    : null
             };
-          
 
             foreach (var c in candidates)
             {
                 if (string.IsNullOrWhiteSpace(c)) continue;
 
-                var r = GeocodeMapsCo(c);
-                if (r != null) return r;
-
-                r = GeocodeNominatim(c, country: "fr");
+                var r = GeocodeNominatim(c, country: "fr");
                 if (r != null) return r;
             }
 
@@ -59,15 +62,34 @@ namespace RoutingServiceLib
             {
                 var qp = HttpUtility.UrlEncode(address);
                 var cc = string.IsNullOrEmpty(country) ? "" : $"&countrycodes={country}";
-                var url = $"https://nominatim.openstreetmap.org/search?q={qp}&format=jsonv2&limit=1&addressdetails=0{cc}";
+                var url =
+                    $"https://nominatim.openstreetmap.org/search?q={qp}&format=jsonv2&limit=1&addressdetails=0{cc}";
                 Console.WriteLine("[Nominatim] " + url);
 
-                var resp = http.GetAsync(url).Result;
-                Console.WriteLine($"[Nominatim] HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
-                if ((int)resp.StatusCode == 429) { Thread.Sleep(1200); return null; }
-                if (!resp.IsSuccessStatusCode) return null;
+                string json = null;
 
-                var json = resp.Content.ReadAsStringAsync().Result;
+                try
+                {
+                    // 1) via proxy avec mini cache
+                    json = _proxy.GetRawTtl(url, 2);
+                }
+                catch
+                {
+                    // 2) fallback direct si le proxy a un souci
+                    var resp = http.GetAsync(url).Result;
+                    Console.WriteLine($"[Nominatim] HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
+
+                    if ((int)resp.StatusCode == 429)
+                    {
+                        Thread.Sleep(1200);
+                        return null;
+                    }
+
+                    if (!resp.IsSuccessStatusCode) return null;
+
+                    json = resp.Content.ReadAsStringAsync().Result;
+                }
+
 
                 object[] rows = new JavaScriptSerializer().Deserialize<object[]>(json);
                 if (rows != null && rows.Length > 0)
@@ -80,38 +102,12 @@ namespace RoutingServiceLib
                         return new LatLng { lat = lat, lng = lon };
                     }
                 }
-
             }
-            catch (Exception ex) { Console.WriteLine("[Nominatim] " + ex.Message); }
-            return null;
-        }
-
-        static LatLng GeocodeMapsCo(string address)
-        {
-            try
+            catch (Exception ex)
             {
-                var url = $"https://geocode.maps.co/search?q={HttpUtility.UrlEncode(address)}";
-                Console.WriteLine("[MapsCo] " + url);
-
-                var resp = http.GetAsync(url).Result;
-                Console.WriteLine($"[MapsCo] HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
-                if (!resp.IsSuccessStatusCode) return null;
-
-                var json = resp.Content.ReadAsStringAsync().Result;
-
-                object[] rows = new JavaScriptSerializer().Deserialize<object[]>(json);
-                if (rows != null && rows.Length > 0)
-                {
-                    var first = rows[0] as Dictionary<string, object>;
-                    if (first != null && first.ContainsKey("lat") && first.ContainsKey("lon"))
-                    {
-                        double lat = double.Parse(first["lat"].ToString(), CultureInfo.InvariantCulture);
-                        double lon = double.Parse(first["lon"].ToString(), CultureInfo.InvariantCulture);
-                        return new LatLng { lat = lat, lng = lon };
-                    }
-                }
+                Console.WriteLine("[Nominatim] " + ex.Message);
             }
-            catch (Exception ex) { Console.WriteLine("[MapsCo] " + ex.Message); }
+
             return null;
         }
     }

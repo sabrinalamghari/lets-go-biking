@@ -11,6 +11,11 @@ namespace RoutingServiceLib
         [WebGet(UriTemplate = "/route?from={from}&to={to}",
                 ResponseFormat = WebMessageFormat.Json)]
         RouteResult GetRoute(string from, string to);
+
+        [OperationContract]
+        [WebInvoke(Method = "OPTIONS", UriTemplate = "/route")]
+        void OptionsRoute();
+
     }
 
 }

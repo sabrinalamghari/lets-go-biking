@@ -42,5 +42,21 @@ namespace ProxyCacheService
             // On passe par GetRawTtl pour profiter du cache générique
             return GetRawTtl(url, (int)ttlSeconds);
         }
+
+        public string GetContractsJson()
+        {
+            var apiKey = ConfigurationManager.AppSettings["JCDecauxApiKey"];
+            var baseUrl = ConfigurationManager.AppSettings["JCDecauxBaseUrl"]
+                          ?? "https://api.jcdecaux.com/vls/v3/";
+            double ttlSeconds = 60;
+            var ttlSetting = ConfigurationManager.AppSettings["JCDecauxContractsTtlSeconds"];
+            if (!string.IsNullOrEmpty(ttlSetting))
+                double.TryParse(ttlSetting, out ttlSeconds);
+
+            var url = $"{baseUrl}contracts?apiKey={apiKey}";
+
+            return GetRawTtl(url, (int)ttlSeconds);
+        }
+
     }
 }

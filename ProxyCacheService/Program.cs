@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.ServiceModel;
 using System.ServiceModel.Description;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace ProxyCacheService
 {
@@ -17,7 +14,7 @@ namespace ProxyCacheService
             {
                 var binding = new BasicHttpBinding
                 {
-                    MaxReceivedMessageSize = 10_000_000, // 5 Mo
+                    MaxReceivedMessageSize = 10_000_000, 
                     MaxBufferSize = 10_000_000,
                     MaxBufferPoolSize = 10_000_000
                 };

@@ -8,34 +8,46 @@ namespace RoutingServiceLib.Clients
     public interface IProxyService
     {
         [OperationContract]
-        string Get(string url);
+        string GetRaw(string url);
+
+        [OperationContract]
+        string GetRawTtl(string url, int ttlSeconds);
+
+        [OperationContract]
+        string GetRawUntil(string url, DateTimeOffset expiresAt);
+
+        [OperationContract]
+        string GetStationsJson(string contractName);
+
+        [OperationContract]
+        string GetContractsJson();
+
     }
 
     public class ProxyClient
     {
-        private readonly string _endpointUrl;
         private readonly Binding _binding;
         private readonly EndpointAddress _endpoint;
 
         public ProxyClient(string endpointUrl = "http://localhost:9001/ProxyService")
         {
-            _endpointUrl = endpointUrl;
             _binding = new BasicHttpBinding
             {
-                MaxReceivedMessageSize = 10_000_000, // 10 Mo
+                MaxReceivedMessageSize = 10_000_000,
                 MaxBufferSize = 10_000_000,
                 MaxBufferPoolSize = 10_000_000
             };
-            _endpoint = new EndpointAddress(_endpointUrl);
+
+            _endpoint = new EndpointAddress(endpointUrl);
         }
 
-        public string Get(string url)
+        private T CallProxy<T>(Func<IProxyService, T> action)
         {
             var factory = new ChannelFactory<IProxyService>(_binding, _endpoint);
             var ch = factory.CreateChannel();
             try
             {
-                string res = ch.Get(url);
+                var res = action(ch);
                 ((IClientChannel)ch).Close();
                 factory.Close();
                 return res;
@@ -47,5 +59,32 @@ namespace RoutingServiceLib.Clients
                 throw;
             }
         }
+
+        public string GetRaw(string url)
+        {
+            return CallProxy(p => p.GetRaw(url));
+        }
+
+        public string GetRawTtl(string url, int ttlSeconds)
+        {
+            return CallProxy(p => p.GetRawTtl(url, ttlSeconds));
+        }
+
+        public string GetRawUntil(string url, DateTimeOffset expiresAt)
+        {
+            return CallProxy(p => p.GetRawUntil(url, expiresAt));
+        }
+
+        public string GetStationsJson(string contractName)
+        {
+            return CallProxy(p => p.GetStationsJson(contractName));
+        }
+
+        public string GetContractsJson()
+        {
+            return CallProxy(p => p.GetContractsJson());
+        }
+
+
     }
 }

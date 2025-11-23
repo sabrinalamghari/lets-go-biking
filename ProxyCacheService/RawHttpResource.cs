@@ -5,6 +5,17 @@ namespace ProxyCacheService
 {
     public class RawHttpResource
     {
+        private static readonly HttpClient client;
+
+        static RawHttpResource()
+        {
+            client = new HttpClient();
+
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(
+                "LetsGoBiking/1.0 (contact: sabrinalmghari@gmail.com)");
+            client.DefaultRequestHeaders.From = "sabrinalmghari@gmail.com";
+        }
+
         public string Url { get; }
         public string Content { get; }
 
@@ -12,15 +23,12 @@ namespace ProxyCacheService
         {
             Url = url;
 
-            using (var client = new HttpClient())
-            {
-                Console.WriteLine("[Proxy] HTTP GET " + url);
+            Console.WriteLine("[Proxy] HTTP GET " + url);
 
-                var response = client.GetAsync(url).Result;
-                response.EnsureSuccessStatusCode();
+            var response = client.GetAsync(url).Result;
+            response.EnsureSuccessStatusCode();
 
-                Content = response.Content.ReadAsStringAsync().Result;
-            }
+            Content = response.Content.ReadAsStringAsync().Result;
         }
     }
 }

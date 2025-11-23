@@ -10,6 +10,8 @@ namespace ProxyCacheService
         [OperationContract] string GetRawTtl(string url, int ttlSeconds);  // now + seconds
         [OperationContract] string GetRawUntil(string url, DateTimeOffset expiresAt); // fixed date
         [OperationContract] string GetStationsJson(string contractName);
+        [OperationContract] string GetContractsJson();
+
     }
 
 

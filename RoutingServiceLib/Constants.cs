@@ -6,6 +6,6 @@
         public const string OSRM_FOOT = "https://routing.openstreetmap.de/routed-foot";
         public const string OSRM_BIKE = "https://routing.openstreetmap.de/routed-bike";
         public const string JCDECAUX = "https://api.jcdecaux.com/vls/v3";
-        public const string JCDECAUX_KEY = "c00b06cbe41711f1ef5d51989438ee72161b92f8"; //clé de Sabrina utilisée pour Sabrina et Anaïs
+        public const string OSRM_HOST = "http://router.project-osrm.org";
     }
 }

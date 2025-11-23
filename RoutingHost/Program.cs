@@ -16,7 +16,12 @@ namespace RoutingHost
 
             using (var host = new WebServiceHost(typeof(RoutingServiceImpl), baseAddress))
             {
-                var ep = host.AddServiceEndpoint(typeof(IRoutingService), new WebHttpBinding(), "");
+                var binding = new WebHttpBinding
+                {
+                    CrossDomainScriptAccessEnabled = true
+                };
+
+                var ep = host.AddServiceEndpoint(typeof(IRoutingService), binding, "");
                 ep.EndpointBehaviors.Add(new WebHttpBehavior
                 {
                     HelpEnabled = true,
