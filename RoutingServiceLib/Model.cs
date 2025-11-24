@@ -17,6 +17,8 @@ namespace RoutingServiceLib
         [DataMember] public double distanceMeters { get; set; }
         [DataMember] public double durationSeconds { get; set; }
         [DataMember] public List<string> instructions { get; set; }
+        [DataMember] public List<double[]> geometry { get; set; }
+
     }
 
     [DataContract]

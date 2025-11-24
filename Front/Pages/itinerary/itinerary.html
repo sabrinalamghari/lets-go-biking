@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Itinéraire</title>
-  <link rel="stylesheet" href="itinerary.css" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Itinéraire</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="itinerary.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
   <app-header></app-header>
@@ -48,18 +50,12 @@
       </div>
 
       <div class="tab-content" id="tab-map">
-        <div class="map">
-          <iframe id="osmFrame"
-                  style="width:100%; height:60vh; border:0; border-radius:10px;"
-                  src=""
-                  loading="lazy"
-                  referrerpolicy="no-referrer-when-downgrade"
-                  allowfullscreen>
-          </iframe>
-          <small style="display:block; margin-top:6px; color:#666">
-            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
-          </small>
-        </div>
+          <div class="map">
+              <div id="map" style="height:60vh; border-radius:10px;"></div>
+              <small style="display:block; margin-top:6px; color:#666">
+                  <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+              </small>
+          </div>
 
       </div>
 

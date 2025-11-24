@@ -5,6 +5,7 @@ using System.Web.Script.Serialization;
 using System.Xml.Linq;
 using RoutingServiceLib.Clients;
 using Newtonsoft.Json.Linq;
+using System.Linq;
 
 
 namespace RoutingServiceLib
@@ -13,19 +14,19 @@ namespace RoutingServiceLib
     {
         static readonly ProxyClient _proxy = new ProxyClient("http://localhost:9001/ProxyService");
 
-        public static (double distance, double duration, List<string> steps) RouteFoot(LatLng a, LatLng b) =>
+        public static (double distance, double duration, List<string> steps, List<double[]> geometry) RouteFoot(LatLng a, LatLng b) =>
             Route(Constants.OSRM_FOOT, "foot", a, b);
 
-        public static (double distance, double duration, List<string> steps) RouteBike(LatLng a, LatLng b) =>
+        public static (double distance, double duration, List<string> steps, List<double[]> geometry) RouteBike(LatLng a, LatLng b) =>
             Route(Constants.OSRM_BIKE, "bike", a, b);
 
-        static (double, double, List<string>) Route(string host, string profile, LatLng a, LatLng b)
+        public static (double, double, List<string>, List<double[]>) Route(string host, string profile, LatLng a, LatLng b)
         {
             var url =
                 $"{host}/route/v1/{profile}/" +
                 $"{a.lng.ToString(CultureInfo.InvariantCulture)},{a.lat.ToString(CultureInfo.InvariantCulture)};" +
                 $"{b.lng.ToString(CultureInfo.InvariantCulture)},{b.lat.ToString(CultureInfo.InvariantCulture)}" +
-                $"?overview=false&steps=true";
+                $"?overview=full&geometries=geojson&steps=true";
 
             try
             {
@@ -36,6 +37,11 @@ namespace RoutingServiceLib
                     throw new Exception("OSRM error: " + root["code"]);
 
                 var route = root["routes"][0];
+                var geomCoords = route["geometry"]?["coordinates"]
+                    ?.Select(c => new double[] { (double)c[1], (double)c[0] }) // lat, lon
+                    .ToList()
+                    ?? new List<double[]>();
+
                 double distance = (double)route["distance"];
                 double duration = (double)route["duration"];
 
@@ -49,7 +55,7 @@ namespace RoutingServiceLib
                     }
 
                 if (stepsList.Count == 0) stepsList.Add("Suivre l'itinéraire.");
-                return (distance, duration, stepsList);
+                return (distance, duration, stepsList, geomCoords);
             }
             catch (Exception ex)
             {
@@ -61,7 +67,7 @@ namespace RoutingServiceLib
                 // vitesses fallback réalistes
                 var speed = profile == "bike" ? 4.5 : 1.3;
 
-                return (dist, dist / speed, new List<string> { "Itinéraire approximatif." });
+                return (dist, dist / speed, new List<string> { "Itinéraire approximatif." }, new List<double[]>());
             }
         }
 

@@ -1,4 +1,77 @@
-﻿const qs = (s, r = document) => r.querySelector(s);
+﻿// ================== LEAFLET MAP ==================
+let map, routeLayer;
+
+function initMap() {
+    map = L.map('map').setView([45.75, 4.85], 13); // Lyon par défaut
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    routeLayer = L.layerGroup().addTo(map);
+}
+
+function setMapMarkers(start, end) {
+    routeLayer.clearLayers();
+
+    if (start) {
+        const lon = start.lon ?? start.lng;
+        L.marker([start.lat, lon]).addTo(routeLayer);
+    }
+    if (end) {
+        const lon = end.lon ?? end.lng;
+        L.marker([end.lat, lon]).addTo(routeLayer);
+    }
+
+    if (start && end) {
+        const b = L.latLngBounds(
+            [start.lat, start.lon ?? start.lng],
+            [end.lat, end.lon ?? end.lng]
+        );
+        map.fitBounds(b.pad(0.2));
+    } else if (start || end) {
+        const p = start || end;
+        map.setView([p.lat, p.lon ?? p.lng], 15);
+    }
+}
+
+function drawRouteOnMap(route) {
+    routeLayer.clearLayers();
+
+    const { s, e } = currentPoints();
+    setMapMarkers(s, e);
+
+    if (!route || !route.legs) return;
+
+    route.legs.forEach(leg => {
+        if (!Array.isArray(leg.geometry)) return;
+
+        const latlngs = leg.geometry.map(pt => [pt[0], pt[1]]);
+
+        const color =
+            leg.type === "bike"
+                ? "#0050ff"   // vélo → bleu foncé
+                : "#66b3ff";  // marche → bleu clair
+
+        L.polyline(latlngs, {
+            color,
+            weight: 5,
+            opacity: 0.9
+        }).addTo(routeLayer);
+    });
+
+    // zoom global
+    const all = route.legs.flatMap(l => l.geometry.map(pt => [pt[0], pt[1]]));
+    if (all.length > 0) {
+        const bounds = L.latLngBounds(all);
+        map.fitBounds(bounds.pad(0.2));
+    }
+}
+
+
+// ================== DOM / UTILS ==================
+const qs = (s, r = document) => r.querySelector(s);
 
 const els = {
     startAc: qs('#start'),
@@ -16,44 +89,6 @@ const els = {
 
 const API_BASE = "http://localhost:9002";
 
-// -------- MAP (ton code inchangé, juste regroupé) ----------
-function bboxFromTwoPoints(a, b, paddingDeg = 0.01) {
-    const aLon = a.lon ?? a.lng;
-    const bLon = b.lon ?? b.lng;
-    const left = Math.min(aLon, bLon) - paddingDeg;
-    const right = Math.max(aLon, bLon) + paddingDeg;
-    const bottom = Math.min(a.lat, b.lat) - paddingDeg;
-    const top = Math.max(a.lat, b.lat) + paddingDeg;
-    return { left, bottom, right, top };
-}
-
-
-function setOsmIframeForPoints(start, end) {
-    const frame = document.getElementById('osmFrame');
-    if (!frame) return;
-
-    if (!start && !end) {
-        frame.src = `https://www.openstreetmap.org/export/embed.html?bbox=2.20,48.80,2.45,48.92&layer=mapnik`;
-        return;
-    }
-
-    const p = start || end;
-    const pLon = p.lon ?? p.lng;
-
-    if (p && !end) {
-        const pad = 0.01;
-        const left = pLon - pad, right = pLon + pad, bottom = p.lat - pad, top = p.lat + pad;
-        frame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${left},${bottom},${right},${top}&layer=mapnik&marker=${p.lat},${pLon}`;
-        return;
-    }
-
-    const bb = bboxFromTwoPoints(start, end, 0.02);
-    const startLon = start.lon ?? start.lng;
-    frame.src = `https://www.openstreetmap.org/export/embed.html?bbox=${bb.left},${bb.bottom},${bb.right},${bb.top}&layer=mapnik&marker=${start.lat},${startLon}`;
-}
-
-
-// -------- UTILS selection ----------
 function currentSelections() {
     const sSel = els.startAc?.selection || null;
     const eSel = els.endAc?.selection || null;
@@ -70,16 +105,8 @@ function selectionLabel(sel) {
     return sel?.label || sel?.display_name || sel?.text || sel?.value || "—";
 }
 
-function coordsToQuery(coords) {
-    if (!coords) return "";
-    const lng = (coords.lon !== undefined && coords.lon !== null)
-        ? coords.lon
-        : coords.lng;
-    return `${coords.lat},${lng}`;
-}
 
-
-// -------- AFFICHAGE ----------
+// ================== AFFICHAGE TEXTE ==================
 function formatMeters(m) {
     if (m == null) return "—";
     if (m < 1000) return `${Math.round(m)} m`;
@@ -114,39 +141,39 @@ function renderRoute(route) {
         return;
     }
 
-    // entête récap
     addStep(`Mode : ${route.mode}`, "step-header");
     addStep(`Distance totale : ${formatMeters(route.totalDistanceMeters)}`);
     addStep(`Durée totale : ${formatDuration(route.totalDurationSeconds)}`);
     if (route.note) addStep(route.note);
-
     addStep("", "step-sep");
 
-    // legs détaillés
     route.legs.forEach((leg, i) => {
         const emoji = leg.type === "bike" ? "🚲" : "🚶";
-        addStep(`${emoji} Étape ${i + 1} (${leg.type}) — ${formatMeters(leg.distanceMeters)} · ${formatDuration(leg.durationSeconds)}`, "step-leg");
+        addStep(
+            `${emoji} Étape ${i + 1} (${leg.type}) — ${formatMeters(leg.distanceMeters)} · ${formatDuration(leg.durationSeconds)}`,
+            "step-leg"
+        );
 
         (leg.instructions || []).forEach(rawInstr => {
             const t = translateInstruction(rawInstr);
             const isAction = !!translations[rawInstr];
-
             const icon = isAction ? iconForAction(t) : "•";
-
             addStep(`${icon} ${t}`, isAction ? "step-action" : "step-street");
         });
 
-
         addStep(" ", "step-gap");
     });
+
+    drawRouteOnMap(route);
+    showTab("map"); // si tu veux switcher automatiquement sur la carte
 }
 
-// -------- API CALL ----------
+
+// ================== API CALL ==================
 async function fetchRoute() {
     const { sSel, eSel } = currentSelections();
     const { s, e } = currentPoints();
 
-    // ✅ Texte fiable : sélection si dispo, sinon ce qui est tapé
     const fromText = (sSel ? selectionLabel(sSel) : (els.startAc?.value || "")).trim();
     const toText = (eSel ? selectionLabel(eSel) : (els.endAc?.value || "")).trim();
 
@@ -156,9 +183,11 @@ async function fetchRoute() {
         return;
     }
 
-    // récap visuel
     els.sumStart.textContent = fromText;
     els.sumEnd.textContent = toText;
+
+    // marqueurs au moment du calcul
+    setMapMarkers(s, e);
 
     const fromQ = encodeURIComponent(fromText);
     const toQ = encodeURIComponent(toText);
@@ -182,8 +211,7 @@ async function fetchRoute() {
 }
 
 
-
-// -------- TABS ----------
+// ================== TABS ==================
 function showTab(name) {
     const isMap = name === "map";
     els.tabBtnMap.classList.toggle("active", isMap);
@@ -195,15 +223,16 @@ function showTab(name) {
 els.tabBtnMap?.addEventListener("click", () => showTab("map"));
 els.tabBtnDetails?.addEventListener("click", () => showTab("details"));
 
-// -------- EVENTS ----------
+
+// ================== EVENTS ==================
 els.startAc?.addEventListener('address-selected', () => {
     const { s, e } = currentPoints();
-    setOsmIframeForPoints(s, e);
+    setMapMarkers(s, e);
 });
 
 els.endAc?.addEventListener('address-selected', () => {
     const { s, e } = currentPoints();
-    setOsmIframeForPoints(s, e);
+    setMapMarkers(s, e);
 });
 
 els.swapBtn?.addEventListener('click', () => {
@@ -213,35 +242,21 @@ els.swapBtn?.addEventListener('click', () => {
     els.endAc.setSelection(sSel || null);
 
     const { s, e } = currentPoints();
-    setOsmIframeForPoints(s, e);
+    setMapMarkers(s, e);
 });
 
 els.form?.addEventListener('submit', (ev) => {
     ev.preventDefault();
-
-    // Récupération sélection et coords
-    const { sSel, eSel } = currentSelections();
-    const { s, e } = currentPoints();
-
-    // ❗ MET LA CARTE À JOUR (coordonnées suffisent)
-    setOsmIframeForPoints(s, e);
-
-    // Juste pour debug visuel
-    console.log("FROM:", sSel ? sSel.label : els.startAc.value);
-    console.log("TO:", eSel ? eSel.label : els.endAc.value);
-
-    fetchRoute(); // ❤️ appelle la version corrigée
+    fetchRoute();
 });
 
-
 window.addEventListener('DOMContentLoaded', () => {
-    const { s, e } = currentPoints();
-    setOsmIframeForPoints(s, e);
+    initMap();
     showTab("map");
 });
 
 
-
+// ================== INSTRUCTIONS / TRAD ==================
 const translations = {
     "depart": "Départ",
     "turn": "Tourner",
@@ -273,6 +288,3 @@ function iconForAction(instr) {
         default: return "•";
     }
 }
-
-
-

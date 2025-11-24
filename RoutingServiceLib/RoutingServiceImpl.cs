@@ -8,28 +8,83 @@ namespace RoutingServiceLib
 {
     public class RoutingServiceImpl : IRoutingService
     {
-        public RouteResult GetRoute(string from, string to)
+       public RouteResult GetRoute(string from, string to)
         {
+            // CORS
             WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Origin", "*");
             WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Methods", "GET, OPTIONS");
             WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
 
             var o = NominatimUtils.ParseOrGeocode(from);
             var d = NominatimUtils.ParseOrGeocode(to);
-            if (o == null || d == null) return Error("Impossible de géocoder l'origine ou la destination.");
+            if (o == null || d == null)
+                return Error("Impossible de géocoder l'origine ou la destination.");
 
             var walkDirect = OsrmClient.RouteFoot(o, d);
+
             Console.WriteLine($"[Route] origin=({o.lat},{o.lng}) dest=({d.lat},{d.lng})");
             Console.WriteLine("[Route] fetching JCDecaux contracts…");
+
             var contracts = JcDecauxClient.GetContracts();
-            Console.WriteLine("=== [DEBUG Contracts] ===");
-            foreach (var c in contracts)
-            {
-                Console.WriteLine($"Name={c.name}, Commercial={c.commercial_name}, Country={c.country_code}, Cities=[{string.Join(",", c.cities ?? new List<string>())}]");
-            }
-            Console.WriteLine("=========================");
+
             var contractFrom = JcDecauxClient.FindContractForOneAddress(from, contracts);
             var contractTo = JcDecauxClient.FindContractForOneAddress(to, contracts);
+            bool interCity = contractFrom != contractTo;
+
+            if (interCity)
+            {
+                Console.WriteLine("[Route] Trajet inter-ville détecté.");
+
+                var stationsA = JcDecauxClient.GetStations(contractFrom);
+                var stationsB = JcDecauxClient.GetStations(contractTo);
+
+                var startA = stationsA.Where(s => s.available_bikes > 0)
+                                      .OrderBy(s => DistMeters(o, s.position))
+                                      .FirstOrDefault();
+
+                var dropA = stationsA.Where(s => s.available_bike_stands > 0)
+                                     .OrderBy(s => DistMeters(d, s.position)) // direction vers destination
+                                     .FirstOrDefault();
+
+                var pickupB = stationsB.Where(s => s.available_bikes > 0)
+                                       .OrderBy(s => DistMeters(o, s.position)) // direction venant de l'origine
+                                       .FirstOrDefault();
+
+                var endB = stationsB.Where(s => s.available_bike_stands > 0)
+                                    .OrderBy(s => DistMeters(d, s.position))
+                                    .FirstOrDefault();
+
+                if (startA == null || dropA == null || pickupB == null || endB == null)
+                    return WalkOnly(walkDirect, "Pas de stations dispo pour un trajet inter-ville.");
+
+                var w0 = OsrmClient.RouteFoot(o, startA.position);
+                var bA = OsrmClient.RouteBike(startA.position, dropA.position);
+                var wMid = OsrmClient.RouteFoot(dropA.position, pickupB.position);
+                var bB = OsrmClient.RouteBike(pickupB.position, endB.position);
+                var wEnd = OsrmClient.RouteFoot(endB.position, d);
+
+                // critère simple : on garde si les accès à pied sont raisonnables
+                if (w0.distance > 2000 || wEnd.distance > 2000)
+                    return WalkOnly(walkDirect, "Stations trop loin de l'origine ou de la destination.");
+
+                var total = w0.duration + bA.duration + wMid.duration + bB.duration + wEnd.duration;
+
+                return new RouteResult
+                {
+                    mode = "bike+walk+bike",
+                    totalDistanceMeters = w0.distance + bA.distance + wMid.distance + bB.distance + wEnd.distance,
+                    totalDurationSeconds = total,
+                    legs = new List<RouteLeg> {
+                        MakeLeg("walk", w0),
+                        MakeLeg("bike", bA),
+                        MakeLeg("walk", wMid),
+                        MakeLeg("bike", bB),
+                        MakeLeg("walk", wEnd),
+                    },
+                    note = $"Inter-ville: départ {contractFrom} ({startA.name} → {dropA.name}), arrivée {contractTo} ({pickupB.name} → {endB.name})."
+                };
+            }
+
 
             Console.WriteLine($"[Route] contractFrom = {contractFrom ?? "null"}");
             Console.WriteLine($"[Route] contractTo   = {contractTo ?? "null"}");
@@ -37,20 +92,146 @@ namespace RoutingServiceLib
             if (string.IsNullOrEmpty(contractFrom) || string.IsNullOrEmpty(contractTo))
                 return WalkOnly(walkDirect, "Aucun contrat JCDecaux trouvé pour l'origine ou la destination.");
 
-            if (contractFrom != contractTo)
-                return WalkOnly(walkDirect,
-                    $"Origine et destination dans 2 contrats différents ({contractFrom} → {contractTo}). Trajet vélo JCDecaux impossible.");
+            // ============================================================
+            // CAS 1 : CONTRATS DIFFÉRENTS  => bike + walk(inter-ville) + bike
+            // ============================================================
+            if (!contractFrom.Equals(contractTo, StringComparison.OrdinalIgnoreCase))
+            {
+                Console.WriteLine("[Route] Trajet inter-ville détecté.");
 
-            var contractName = contractFrom; 
+                var stationsO = JcDecauxClient.GetStations(contractFrom);
+                var stationsD = JcDecauxClient.GetStations(contractTo);
 
-            Console.WriteLine("[Route] contract choisi = " + (contractName ?? "null"));
+                // candidates origine : stations avec vélos / stations avec places
+                var startCandidatesA = stationsO.Where(s => s.available_bikes > 0)
+                    .OrderBy(s => DistMeters(o, s.position))
+                    .Take(8)
+                    .ToList();
 
-            if (string.IsNullOrEmpty(contractName))
-                return WalkOnly(walkDirect, "Aucun contrat JCDecaux trouvé pour cette zone.");
+                var exitCandidatesA = stationsO.Where(s => s.available_bike_stands > 0)
+                    .OrderBy(s => DistMeters(d, s.position)) // station "sortie" proche de la destination
+                    .Take(8)
+                    .ToList();
 
+                if (startCandidatesA.Count == 0 || exitCandidatesA.Count == 0)
+                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom}).");
+
+                // on choisit la meilleure paire startA -> exitA selon OSRM
+                JcStation bestStartA = null, bestExitA = null;
+                double bestA = double.MaxValue;
+
+                foreach (var sA in startCandidatesA)
+                {
+                    foreach (var eA in exitCandidatesA)
+                    {
+                        var wA = OsrmClient.RouteFoot(o, sA.position);
+                        var bA = OsrmClient.RouteBike(sA.position, eA.position);
+                        var totalA = wA.duration + bA.duration;
+
+                        if (totalA < bestA)
+                        {
+                            bestA = totalA;
+                            bestStartA = sA;
+                            bestExitA = eA;
+                        }
+                    }
+                }
+
+                var startA = bestStartA;
+                var exitA = bestExitA;
+
+                if (startA == null || exitA == null)
+                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom}).");
+
+                // candidates arrivée : stations avec vélos proches de exitA / stations avec places proches de destination
+                var entryCandidatesB = stationsD.Where(s => s.available_bikes > 0)
+                    .OrderBy(s => DistMeters(exitA.position, s.position)) // station "entrée" proche de exitA
+                    .Take(8)
+                    .ToList();
+
+                var endCandidatesB = stationsD.Where(s => s.available_bike_stands > 0)
+                    .OrderBy(s => DistMeters(d, s.position))
+                    .Take(8)
+                    .ToList();
+
+                if (entryCandidatesB.Count == 0 || endCandidatesB.Count == 0)
+                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo}).");
+
+                // meilleure paire entryB -> endB
+                JcStation bestEntryB = null, bestEndB = null;
+                double bestB = double.MaxValue;
+
+                foreach (var sB in entryCandidatesB)
+                {
+                    foreach (var eB in endCandidatesB)
+                    {
+                        var bB = OsrmClient.RouteBike(sB.position, eB.position);
+                        var wB = OsrmClient.RouteFoot(eB.position, d);
+                        var totalB = bB.duration + wB.duration;
+
+                        if (totalB < bestB)
+                        {
+                            bestB = totalB;
+                            bestEntryB = sB;
+                            bestEndB = eB;
+                        }
+                    }
+                }
+
+                var entryB = bestEntryB;
+                var endB = bestEndB;
+
+                if (entryB == null || endB == null)
+                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo}).");
+
+                // legs inter-ville
+                var walk1 = OsrmClient.RouteFoot(o, startA.position);
+                var bike1 = OsrmClient.RouteBike(startA.position, exitA.position);
+
+                var walkMid = OsrmClient.RouteFoot(exitA.position, entryB.position);
+
+                var bike2 = OsrmClient.RouteBike(entryB.position, endB.position);
+                var walk2 = OsrmClient.RouteFoot(endB.position, d);
+
+                // garde-fou pour éviter les trajets absurdes
+                if (walkMid.distance > 50000) // 50km à pied entre villes -> on abandonne le mix
+                    return WalkOnly(walkDirect, "Trajet inter-ville trop long pour un mix vélo/marche réaliste.");
+
+                var totalInter =
+                    walk1.duration + bike1.duration +
+                    walkMid.duration +
+                    bike2.duration + walk2.duration;
+
+                return new RouteResult
+                {
+                    mode = "bike+walk+bike",
+                    totalDistanceMeters =
+                        walk1.distance + bike1.distance +
+                        walkMid.distance +
+                        bike2.distance + walk2.distance,
+                    totalDurationSeconds = totalInter,
+                    legs = new List<RouteLeg>
+            {
+                MakeLeg("walk", walk1),
+                MakeLeg("bike", bike1),
+                MakeLeg("walk", walkMid),
+                MakeLeg("bike", bike2),
+                MakeLeg("walk", walk2),
+            },
+                    note = $"Trajet inter-ville ({contractFrom} → {contractTo}). " +
+                           $"Stations : {startA.name} → {exitA.name} → {entryB.name} → {endB.name}."
+                };
+            }
+
+            // ============================================================
+            // CAS 2 : MÊME CONTRAT  => ton code actuel bike+walk
+            // ============================================================
+            var contractName = contractFrom;
+            Console.WriteLine("[Route] contrat choisi = " + contractName);
             Console.WriteLine($"[Route] fetching JCDecaux stations for {contractName}…");
 
             var stations = JcDecauxClient.GetStations(contractName);
+
             var startCandidates = stations.Where(s => s.available_bikes > 0)
                 .OrderBy(s => DistMeters(o, s.position))
                 .Take(8)
@@ -64,7 +245,6 @@ namespace RoutingServiceLib
             if (startCandidates.Count == 0 || endCandidates.Count == 0)
                 return WalkOnly(walkDirect, "Pas de station disponible (vélos/places).");
 
-            // on teste les combinaisons et on garde la meilleure
             JcStation bestStart = null, bestEnd = null;
             double bestTotal = double.MaxValue;
 
@@ -90,10 +270,6 @@ namespace RoutingServiceLib
             var start = bestStart;
             var end = bestEnd;
 
-            Console.WriteLine($"[DEBUG] stations total = {stations.Count}");
-            Console.WriteLine($"[DEBUG] start = {(start == null ? "null" : start.name)} bikes={start?.available_bikes}");
-            Console.WriteLine($"[DEBUG] end   = {(end == null ? "null" : end.name)} stands={end?.available_bike_stands}");
-
             if (start == null || end == null)
                 return WalkOnly(walkDirect, "Pas de station disponible (vélos/places).");
 
@@ -107,39 +283,37 @@ namespace RoutingServiceLib
                 walkToBike.distance < 2000 &&
                 walkToEnd.distance < 2000;
 
-
-            Console.WriteLine($"[DEBUG] walkDirect: {walkDirect.duration}s / {walkDirect.distance}m");
-            Console.WriteLine($"[DEBUG] walkToBike: {walkToBike.duration}s / {walkToBike.distance}m");
-            Console.WriteLine($"[DEBUG] bikeLeg:    {bikeLeg.duration}s / {bikeLeg.distance}m");
-            Console.WriteLine($"[DEBUG] walkToEnd:  {walkToEnd.duration}s / {walkToEnd.distance}m");
-            Console.WriteLine($"[DEBUG] totalBike = {totalBike}s");
-            Console.WriteLine($"[DEBUG] worthIt = {worthIt}");
-
-
-            if (!worthIt) return WalkOnly(walkDirect, "Le vélo n'apporte pas de gain significatif.");
+            if (!worthIt)
+                return WalkOnly(walkDirect, "Le vélo n'apporte pas de gain significatif.");
 
             return new RouteResult
             {
                 mode = "bike+walk",
                 totalDistanceMeters = walkToBike.distance + bikeLeg.distance + walkToEnd.distance,
                 totalDurationSeconds = totalBike,
-                legs = new List<RouteLeg> {
-                    new RouteLeg{ type="walk", distanceMeters=walkToBike.distance, durationSeconds=walkToBike.duration, instructions=walkToBike.steps },
-                    new RouteLeg{ type="bike", distanceMeters=bikeLeg.distance,   durationSeconds=bikeLeg.duration,     instructions=bikeLeg.steps },
-                    new RouteLeg{ type="walk", distanceMeters=walkToEnd.distance, durationSeconds=walkToEnd.duration,   instructions=walkToEnd.steps },
-                },
+                legs = new List<RouteLeg>
+        {
+            MakeLeg("walk", walkToBike),
+            MakeLeg("bike", bikeLeg),
+            MakeLeg("walk", walkToEnd),
+        },
                 note = $"Stations: départ '{start.name}', arrivée '{end.name}'."
             };
         }
-        RouteResult WalkOnly((double distance, double duration, List<string> steps) w, string note) =>
+
+        RouteResult WalkOnly(
+            (double distance, double duration, List<string> steps, List<double[]> geometry) w,
+            string note
+            ) =>
             new RouteResult
-            {
-                mode = "walk_only",
-                totalDistanceMeters = w.distance,
-                totalDurationSeconds = w.duration,
-                legs = new List<RouteLeg> { new RouteLeg { type = "walk", distanceMeters = w.distance, durationSeconds = w.duration, instructions = w.steps } },
-                note = note
-            };
+        {
+            mode = "walk_only",
+            totalDistanceMeters = w.distance,
+            totalDurationSeconds = w.duration,
+            legs = new List<RouteLeg> { MakeLeg("walk", w) },
+            note = note
+        };
+
         RouteResult Error(string msg) => new RouteResult { mode = "error", note = msg, totalDistanceMeters = 0, totalDurationSeconds = 0, legs = new List<RouteLeg>() };
 
         // on a choisi de calculer localement la distance géographique (Haversine) 
@@ -169,6 +343,16 @@ namespace RoutingServiceLib
             WebOperationContext.Current.OutgoingResponse.Headers.Add("Access-Control-Allow-Headers", "Content-Type");
         }
 
+
+        RouteLeg MakeLeg(string type, (double distance, double duration, List<string> steps, List<double[]> geometry) r)
+            => new RouteLeg
+        {
+            type = type,
+            distanceMeters = r.distance,
+            durationSeconds = r.duration,
+            instructions = r.steps,
+            geometry = r.geometry
+        };
 
     }
 }
