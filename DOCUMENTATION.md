@@ -621,4 +621,155 @@ catch (Exception ex)
 * Préparer la possibilité future d’un logging vers fichier ou d’un niveau `DEBUG`.
 * Lancer les tests en mode console pour visualiser les logs en temps réel.
 
-```
+
+
+
+
+# Explication générale:
+
+### ProxyCacheService
+
+C'est un service SOAP que le RoutingService contacte quand il a besoin d'indormations provenant d'API externes.
+
+1) Proxy:
+Le proxy reçoit une URL, fait la requête HTTP correspondante, et renvoie la réponse brute (JSON, texte, peu importe).
+→ Il agit comme intermédiaire entre toi et les API externes.
+
+2) Cache: 
+Pour éviter d’appeler trop souvent des services sensibles (Nominatim, JCDecaux…), il utilise un GenericProxyCache<T> basé sur MemoryCache.
+Ce cache stocke un résultat pendant X secondes ou jusqu’à une date d’expiration.
+
+Donc :
+
+Si l’URL a déjà été demandée récemment → il renvoie la réponse depuis le cache (pas de réseau).
+
+Sinon → il fait la requête HTTP → stocke → renvoie.
+
+Ainsi, chaque appel externe passe par le proxy, donc une seule source de vérité gère le caching, la sécurité et les limites.
+
+## RoutingService: 
+C'est le cerveau qui calcule l'itinéraire, c'est un service REST que le front interroge.
+
+### Constants.cs:
+Il regroupe les URL qu'on utilise dans une classe statique pour éviter les répétitions et limiter les erreurs d'écriture
+
+### IRoutingService.cs:
+C'est l'interface avec la liste des opérations REST que le front peut appeler. 
+Comme c'est une interface WCF, elle sert de contract: l'implémentation réelle se trouve dans RoutingServiceImpl.cs
+
+### JcContract.cs:
+Cette classe représente un contrat JCDecaux (une zone géographique où le service de vélos est disponible)
+Elle sert de modèle pour désérialiser la réponse JSON renvoyée par l'API JCDecaux lorsqu'on appelle l'endpoint.
+Les propriétés correspondent directement aux champs fournis par l’API :
+- name : identifiant interne du contrat (ex. lyon, paris...)
+- commercial_name : nom commercial affiché publiquement.
+- cities : liste des villes couvertes par le contrat
+- country_code : code du pays (ex. FR).
+
+Le RoutingService utilise cette classe pour déterminer quel contrat correspond à l'origine et à la destination, afin de savoir quelles stations JCDecaux charger.
+
+### JcDecauxClient.cs:
+C'est la classe qui gère toutes les interactions avec JCDecaux, en passant par le ProxyCacheService pour éviter les appels réseau inutiles.
+Elle transforme les réponses JSON en objets utilisables par le RoutingService.
+    - GetStations(contract):    
+        - Appelle _proxy.GetStationsJson(contract)
+        - Dé-sérialise le JSON JCDecaux
+        - Extrait : position, nom, vélos dispo, places dispo
+        - Retourne une liste de JcStation
+    - GetContracts():
+        - Récupère tous les contracts JCDecaux
+        - Extrait: nom, villes, pays, nom commercial
+        - Retourne une liste de JcContract
+    - FindBestContract / FindContractForOneAddress
+        - Analyse une ou deux adresses
+        - Cherche un contrat lié à la ville ou au nom commercial
+        - Retourne le contrat le plus pertinent (ou null)
+Donc c'est la passerelle entre le RoutingService et les données JCDecaux, avec de la logique pour identifier le bon contrat et exploiter les stations
+
+### Model.cs:
+Il définit les structures utilisées pour décrire l'itinéraire et les stations renvoyés au front.
+Ces classes sont décorées avec [DataContract] et [DataMember] pour être envoyées proprement en JSON par le RoutingService.
+
+LatLng:
+- Représente un point GPS avec lat et lng.
+- Utilisé par les stations, les géométries OSRM, etc.
+RouteLeg
+- Un “segment” du trajet (ex : à pied → vélo → à pied).
+- Contient : distance, durée, instructions textuelles, et la géométrie (liste de points).
+
+RouteResult:
+- Objet final renvoyé au front.
+- Indique le mode choisi (pied ou vélo), la distance totale, la durée totale, les différentes legs, et une éventuelle note explicative.
+
+JcStation:
+- Représente une station JCDecaux.
+- Contient : nom, position GPS, vélos disponibles, places disponibles.
+
+### NominatimUtils.cs:
+C'est un utilitaire chargé de convertir une adresse en coordonnées GPS en utilisant Nominatim, avec un passage prioritaire apr le proxy et un fallback direct si besoin 
+
+### OsrmClient.cs: 
+Il interroge OSRM (Open Source Routing Machine) via le ProxyCacheService pour calculer un trajet entre deux points, soit à pied, soit en vélo.
+    - RouteFoot(a,b): appelle Route avec le profil foot, et renvoie la distance, durée, étapes et géométrie pour un trajet à pied
+    - RouteBike(a,b): appelle Route avec le profil bike, et renvoie les mêmes données, mais optimisées pour un trajet vélo
+    - Route(host, profile, a, b): 
+        - Construit l’URL OSRM (foot ou bike).
+        - Appelle l’API via \_proxy.GetRaw(url).
+        - Analyse le JSON :
+            - récupère distance / durée
+            - extrait les coordonnées du parcours (geometry
+            - récupère les étapes textuelles (steps)
+        - Si OSRM renvoie une erreur :
+            - log l’erreur
+            - applique un **fallback Haversine** (distance approximative et vitesse moyenne).
+    - Haversine: calcule la distance à vol d'oiseau entre deux points GPS
+Donc, OsrmClient est le moteur de calcul d'itinéraires, fiable grâace au proxy, et résilient grâce au fallback Haversine
+
+### ProxyClient.cs:
+Il définit l'interface SOAP du ProxyCacheService ainsi que le client WCF permettant au RoutingService d'appeler ce proxy facilement
+    - L'interface IProxyService liste les opérations exposées par le ProxyCacheService:
+    - La classe ProxyClient est le client WCF utilisé par  le RoutingService pour communiquer avec le proxy
+        - Il configure un BasicHttpBinding, initialise l'adresse du proxy
+
+### RoutingServiceImpl.cs:
+C'est ici qu'il y a toute la logique de calcul d'itinéraire. Il orchestre les appels à Nominatim, JCDecaux et OSRM via le ProxyCacheService, choisit les meilleures stations et renvoie l’itinéraire final au front.
+- Méthode principale : GetRoute(from, to)
+C’est l’unique endpoint REST exposé au front.
+Elle fait, dans cet ordre :
+1. Gestion CORS
+Permet au front (JavaScript) d’appeler le service depuis un autre domaine.
+2. Géocodage
+Convertit from et to en coordonnées GPS via NominatimUtils.
+3. Calcul du trajet à pied direct
+Toujours calculé en référence (OSRM walking). Sert de comparaison pour décider si le vélo vaut le coup.
+4. Récupération des contrats JCDecaux
+Permet de savoir dans quelle(s) ville(s) se trouvent les deux adresses.
+5. Détection du type de trajet
+Même contrat → trajet intra-ville
+Contrats différents → trajet inter-ville
+Aucun contrat → marche uniquement
+6. Sélection des stations JCDecaux
+Selon le cas :
+stations avec vélos disponibles (départ)
+stations avec places disponibles (arrivée)
+éventuellement plusieurs villes si inter-ville
+7. Calcul des legs (walk/bike/walk…)
+Chaque portion du trajet est calculée via OsrmClient.
+8. Décision “vélo ou pas”
+Pour un trajet intra-ville :
+le vélo doit faire gagner du temps
+et les stations doivent être raisonnablement proches
+Si ce n’est pas le cas → renvoie un trajet à pied uniquement.
+9. Construction du RouteResult
+Assemble :
+distance totale
+durée totale
+liste des segments (legs)
+informations des stations
+commentaire explicatif
+- Méthodes utilitaires
+    - WalkOnly(w, note): Construit un résultat “marche uniquement”, utilisé en fallback (pas de stations, trop loin, erreur, etc.).
+    - Error(msg): Renvoie un résultat d’erreur formaté.
+    - DistMeters(a, b): Distance Haversine locale (évite de spammer OSRM pour chaque station).
+    - OptionsRoute(): Réponse CORS au preflight HTTP OPTIONS.
+    - MakeLeg(type, r): Transforme un tuple OSRM en objet RouteLeg prêt à être retourné au front.
