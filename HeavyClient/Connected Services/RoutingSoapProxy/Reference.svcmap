@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ReferenceGroup xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" ID="77ee411f-7014-40dd-b1e7-8bb0a3d02fe5" xmlns="urn:schemas-microsoft-com:xml-wcfservicemap">
+  <ClientOptions>
+    <GenerateAsynchronousMethods>false</GenerateAsynchronousMethods>
+    <GenerateTaskBasedAsynchronousMethod>true</GenerateTaskBasedAsynchronousMethod>
+    <EnableDataBinding>true</EnableDataBinding>
+    <ExcludedTypes />
+    <ImportXmlTypes>false</ImportXmlTypes>
+    <GenerateInternalTypes>false</GenerateInternalTypes>
+    <GenerateMessageContracts>false</GenerateMessageContracts>
+    <NamespaceMappings />
+    <CollectionMappings />
+    <GenerateSerializableTypes>true</GenerateSerializableTypes>
+    <Serializer>Auto</Serializer>
+    <UseSerializerForFaults>true</UseSerializerForFaults>
+    <ReferenceAllAssemblies>true</ReferenceAllAssemblies>
+    <ReferencedAssemblies />
+    <ReferencedDataContractTypes />
+    <ServiceContractMappings />
+  </ClientOptions>
+  <MetadataSources>
+    <MetadataSource Address="http://localhost:9002/soap?wsdl" Protocol="http" SourceId="1" />
+  </MetadataSources>
+  <Metadata>
+    <MetadataFile FileName="soap.xsd" MetadataType="Schema" ID="7d42eabe-8844-423f-9598-3d4ac189a7e7" SourceId="1" SourceUrl="http://localhost:9002/soap?xsd=xsd1" />
+    <MetadataFile FileName="RoutingServiceImpl.wsdl" MetadataType="Wsdl" ID="4df5db78-043b-4282-b44d-98c0aeac79c9" SourceId="1" SourceUrl="http://localhost:9002/soap?wsdl" />
+    <MetadataFile FileName="soap1.xsd" MetadataType="Schema" ID="421f51b5-f9c1-4dca-833d-0bda5ffa1413" SourceId="1" SourceUrl="http://localhost:9002/soap?xsd=xsd2" />
+    <MetadataFile FileName="soap2.xsd" MetadataType="Schema" ID="1b12fbf7-c79a-41a5-a270-4f7f30f84a63" SourceId="1" SourceUrl="http://localhost:9002/soap?xsd=xsd3" />
+    <MetadataFile FileName="soap3.xsd" MetadataType="Schema" ID="fbab8616-36a8-4b28-b77f-fd97d27208af" SourceId="1" SourceUrl="http://localhost:9002/soap?xsd=xsd0" />
+  </Metadata>
+  <Extensions>
+    <ExtensionFile FileName="configuration91.svcinfo" Name="configuration91.svcinfo" />
+    <ExtensionFile FileName="configuration.svcinfo" Name="configuration.svcinfo" />
+  </Extensions>
+</ReferenceGroup>

@@ -6,7 +6,7 @@ using System.ServiceModel.Web;
 
 namespace RoutingServiceLib
 {
-    public class RoutingServiceImpl : IRoutingService
+    public class RoutingServiceImpl : IRoutingService, IRoutingServiceSoap
     {
        public RouteResult GetRoute(string from, string to)
         {
