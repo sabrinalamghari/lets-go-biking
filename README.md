@@ -50,28 +50,13 @@ Projet réalisé par : **Sabrina Lamghari** && **Anaïs Lacouture**
 - Affiche mode, distance, durée, étapes.
 
 ---
-
-# 3. Installation & prérequis
-
-### Nécessaires :
-- .NET (4.8 ou .NET 6/7/8 selon ton installation)
-- ActiveMQ (via Apache ActiveMQ)
-  - Console accessible sur `http://localhost:8161`
-- Connexion internet :
-  - API JCDecaux
-  - OSRM (public server)
-  - API Météo
-- Navigateur moderne (Chrome/Firefox/Edge)
-
----
-
-# 4. Lancement du projet
+# 3. Lancement du projet
 
 ## **IMPORTANT — Démarrer ActiveMQ AVANT tout**
 Avant de lancer le script, il faut impérativement que **le broker ActiveMQ soit démarré**.
 ---
 
-## 4.1 Lancement automatisé via `launcher.bat`
+## 3.1 Lancement automatisé via `launcher.bat`
 
 Le fichier se trouve dans :  
 `LetsGoBiking/launcher.bat`
@@ -81,7 +66,7 @@ Ce script lance automatiquement :
 2. **RoutingHost**
 3. **ActiveMqProducer** (notifications météo)
 
-# 4.2 Lancer le Heavy Client (optionnel)
+# 3.2 Lancer le Heavy Client (optionnel)
 
 ### Lancer :
 Exécuter depuis Visual Studio.
