@@ -19,6 +19,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Front", "..\Front\Front.csp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HeavyClient", "..\HeavyClient\HeavyClient.csproj", "{D3FA4085-A3E5-4B6E-B1E9-7D30BC74090B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ActiveMqProducer", "..\NotificationsService\ActiveMqProducer.csproj", "{774C84B6-4ED6-412F-977D-3B3AFDD01DAC}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -57,6 +59,10 @@ Global
 		{D3FA4085-A3E5-4B6E-B1E9-7D30BC74090B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D3FA4085-A3E5-4B6E-B1E9-7D30BC74090B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D3FA4085-A3E5-4B6E-B1E9-7D30BC74090B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{774C84B6-4ED6-412F-977D-3B3AFDD01DAC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{774C84B6-4ED6-412F-977D-3B3AFDD01DAC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{774C84B6-4ED6-412F-977D-3B3AFDD01DAC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{774C84B6-4ED6-412F-977D-3B3AFDD01DAC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

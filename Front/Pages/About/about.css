@@ -1,0 +1,10 @@
+﻿.about-container {
+    max-width: 900px;
+    margin: 60px auto;
+    padding: 20px;
+}
+
+    .about-container h1 {
+        font-size: 2.5rem;
+        margin-bottom: 20px;
+    }

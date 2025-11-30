@@ -77,6 +77,9 @@
     <Content Include="Components\header\header.html" />
     <Content Include="Components\header\header.js" />
     <Content Include="Logo_Reseau_Polytech.svg" />
+    <Content Include="Pages\About\about.css" />
+    <Content Include="Pages\About\about.html" />
+    <Content Include="Pages\Accueil\index.html" />
     <Content Include="Pages\Itinerary\itinerary.css" />
     <Content Include="Pages\Itinerary\itinerary.html" />
     <Content Include="Pages\Itinerary\itinerary.js" />
@@ -89,6 +92,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+    <Content Include="Pages\Accueil\StyleSheet1.scss" />
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -112,7 +116,7 @@
           <AutoAssignPort>True</AutoAssignPort>
           <DevelopmentServerPort>61701</DevelopmentServerPort>
           <DevelopmentServerVPath>/</DevelopmentServerVPath>
-          <IISUrl>http://localhost:60706/</IISUrl>
+          <IISUrl>http://localhost:61701/</IISUrl>
           <NTLMAuthentication>False</NTLMAuthentication>
           <UseCustomServer>False</UseCustomServer>
           <CustomServerUrl>

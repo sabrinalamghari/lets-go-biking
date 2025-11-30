@@ -1,11 +1,12 @@
 :host{ display:block; }
 
-header{
-  position: sticky; 
-  top:0;
-  background:#FCFAF7; 
-  border-bottom:1px solid #ddd; 
-  z-index:10;
+header {
+    position: sticky;
+    top: 0;
+    background: #FCFAF7;
+    border-bottom: 1px solid #ddd;
+    font-family: Arial, sans-serif;
+    z-index: 10;
 }
 
 .bar{
@@ -33,14 +34,11 @@ nav {
   flex:1;                
 }
 
-nav a {
-  text-decoration:none;
-  color:#555;
-  font-weight:600;
-  padding:6px 8px;
-  border-radius:8px;
-}
-
 nav a:hover {
   background:#eee;
+}
+
+header, header * {
+    font-family: Arial, sans-serif;
+    font-size: 16px;
 }

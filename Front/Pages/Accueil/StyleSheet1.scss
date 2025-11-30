@@ -1,0 +1,30 @@
+﻿.home-container {
+    max-width: 900px;
+    margin: 80px auto;
+    text-align: center;
+}
+
+.home-container h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+}
+
+.home-container p {
+    font-size: 1.3rem;
+    margin-bottom: 40px;
+    color: #444;
+}
+
+.cta {
+    padding: 15px 35px;
+    font-size: 1.3rem;
+    background-color: #0078ff;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.cta:hover {
+    background-color: #005ec4;
+}

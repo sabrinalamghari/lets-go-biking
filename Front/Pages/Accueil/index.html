@@ -1,0 +1,32 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>Accueil - Let's Go Biking</title>
+    <link rel="stylesheet" href="home.css" />
+</head>
+<body>
+
+    <app-header></app-header>
+
+    <main class="home-container">
+        <h1>Bienvenue dans Let's Go Biking 🚲</h1>
+        <p>Calculez facilement vos itinéraires vélo + marche dans n'importe quelle ville.</p>
+
+        <button id="go-itinerary" class="cta">
+            Voir mon itinéraire →
+        </button>
+    </main>
+
+    <app-footer></app-footer>
+
+    <script type="module" src="../../Components/header/header.js"></script>
+    <script type="module" src="../../Components/footer/footer.js"></script>
+
+    <script>
+        document.getElementById("go-itinerary").addEventListener("click", () => {
+            window.location.href = "../Itinerary/itinerary.html";
+        });
+    </script>
+</body>
+</html>

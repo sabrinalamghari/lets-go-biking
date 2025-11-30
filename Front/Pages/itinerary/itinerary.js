@@ -1,7 +1,19 @@
-﻿// ================== LEAFLET MAP ==================
-let map, routeLayer;
+﻿// ================= ACTIVE MQ / STOMP =================
+let stompClient = null;
+let stompConnected = false;
+let stompSubscription = null;
+
+// Doit matcher la queue définie en C# : TP_LetsGo
+const DESTINATION = "/queue/TP_LetsGo_Weather";
+
+// ================== LEAFLET MAP ==================
+let map = null;
+let routeLayer = null;
 
 function initMap() {
+    // ⚠️ protège contre les doubles appels
+    if (map) return;
+
     map = L.map('map').setView([45.75, 4.85], 13); // Lyon par défaut
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -13,6 +25,11 @@ function initMap() {
 }
 
 function setMapMarkers(start, end) {
+    if (!routeLayer) {
+        console.warn("[MAP] routeLayer pas encore initialisé, setMapMarkers ignoré");
+        return;
+    }
+
     routeLayer.clearLayers();
 
     if (start) {
@@ -37,6 +54,11 @@ function setMapMarkers(start, end) {
 }
 
 function drawRouteOnMap(route) {
+    if (!routeLayer) {
+        console.warn("[MAP] routeLayer pas encore init dans drawRouteOnMap");
+        return;
+    }
+
     routeLayer.clearLayers();
 
     const { s, e } = currentPoints();
@@ -51,8 +73,8 @@ function drawRouteOnMap(route) {
 
         const color =
             leg.type === "bike"
-                ? "#0050ff"   // vélo → bleu foncé
-                : "#66b3ff";  // marche → bleu clair
+                ? "#0050ff"
+                : "#66b3ff";
 
         L.polyline(latlngs, {
             color,
@@ -61,13 +83,13 @@ function drawRouteOnMap(route) {
         }).addTo(routeLayer);
     });
 
-    // zoom global
     const all = route.legs.flatMap(l => l.geometry.map(pt => [pt[0], pt[1]]));
     if (all.length > 0) {
         const bounds = L.latLngBounds(all);
         map.fitBounds(bounds.pad(0.2));
     }
 }
+
 
 
 // ================== DOM / UTILS ==================
@@ -85,6 +107,10 @@ const els = {
     tabBtnDetails: qs('#tab-btn-details'),
     tabMap: qs('#tab-map'),
     tabDetails: qs('#tab-details'),
+    notifList: qs('#notif-list'),
+    chkMeteo: qs('#chk-meteo'),
+    chkPollution: qs('#chk-pollution'),
+    chkBikes: qs('#chk-bikes')
 };
 
 const API_BASE = "http://localhost:9002";
@@ -141,7 +167,7 @@ function renderRoute(route) {
         return;
     }
 
-    addStep(`Mode : ${route.mode}`, "step-header");
+    addStep(`Mode : ${formatMode(route.mode)}`, "step-header");
     addStep(`Distance totale : ${formatMeters(route.totalDistanceMeters)}`);
     addStep(`Durée totale : ${formatDuration(route.totalDurationSeconds)}`);
     if (route.note) addStep(route.note);
@@ -149,8 +175,10 @@ function renderRoute(route) {
 
     route.legs.forEach((leg, i) => {
         const emoji = leg.type === "bike" ? "🚲" : "🚶";
+        const typeLabel = formatLegType(leg.type);
+
         addStep(
-            `${emoji} Étape ${i + 1} (${leg.type}) — ${formatMeters(leg.distanceMeters)} · ${formatDuration(leg.durationSeconds)}`,
+            `${emoji} Étape ${i + 1} — ${typeLabel} · ${formatMeters(leg.distanceMeters)} · ${formatDuration(leg.durationSeconds)}`,
             "step-leg"
         );
 
@@ -253,6 +281,7 @@ els.form?.addEventListener('submit', (ev) => {
 window.addEventListener('DOMContentLoaded', () => {
     initMap();
     showTab("map");
+    connectToActiveMq();
 });
 
 
@@ -288,3 +317,107 @@ function iconForAction(instr) {
         default: return "•";
     }
 }
+
+function connectToActiveMq() {
+    if (stompConnected) return;
+
+    const wsUrl = "ws://localhost:61614"; // ActiveMQ WebSocket STOMP
+
+    // Laisse la lib créer le WebSocket elle-même
+    stompClient = Stomp.client(wsUrl);
+    stompClient.debug = null; // désactiver les logs verbeux
+
+    stompClient.connect(
+        {}, // headers (login/pass si tu en as)
+        (frame) => {
+            console.log("[STOMP] Connecté à ActiveMQ :", frame);
+            stompConnected = true;
+            subscribeToQueue();
+        },
+        (err) => {
+            console.error("[STOMP] ERREUR de connexion :", err);
+        }
+    );
+}
+
+function subscribeToQueue() {
+    if (!stompConnected || !stompClient) return;
+
+    if (stompSubscription) {
+        stompSubscription.unsubscribe();
+    }
+
+    stompSubscription = stompClient.subscribe(DESTINATION, (message) => {
+        console.log("[STOMP] Reçu : ", message.body);
+
+        try {
+            let body = message.body;
+            body = body.replace(/\u0000/g, "").trim();
+
+            const alert = JSON.parse(body);
+            handleAlert(alert);
+        } catch (e) {
+            console.error("Message non-JSON ou erreur dans handleAlert :", message.body);
+            console.error("Erreur :", e);
+        }
+    });
+
+
+
+    console.log("[STOMP] Abonné à " + DESTINATION);
+}
+
+
+function handleAlert(alert) {
+    // Si on n'est pas sur une page avec la zone d'alertes, on ne fait rien
+    if (!els.notifList) return;
+
+    const t = alert.type || "other";
+
+    // on vérifie que les checkbox existent avant de lire .checked
+    if (t === "meteo" && els.chkMeteo && !els.chkMeteo.checked) return;
+    if (t === "pollution" && els.chkPollution && !els.chkPollution.checked) return;
+    if (t === "bike" && els.chkBikes && !els.chkBikes.checked) return;
+
+    const li = document.createElement("li");
+    li.className = `notif-item ${alert.severity || "info"}`;
+
+    li.textContent = alert.message || "(alerte)";
+
+    els.notifList.prepend(li);
+
+    if (t === "bike" && alert.severity === "critical" && typeof fetchRoute === "function") {
+        console.log("[ALERT] Recalcul d'itinéraire suite à une alerte vélo critique");
+        fetchRoute();
+    }
+}
+
+function formatMode(mode) {
+    switch (mode) {
+        case "walk_only":
+            return "À pied uniquement";
+        case "bike+walk":
+            return "Vélo + marche";
+        case "bike+walk+bike":
+            return "Vélo + marche + vélo";
+        case "error":
+            return "Erreur";
+        default:
+            return mode || "—";
+    }
+}
+
+function formatLegType(type) {
+    switch (type) {
+        case "walk":
+            return "à pied";
+        case "bike":
+            return "à vélo";
+        default:
+            return type || "";
+    }
+}
+
+
+
+

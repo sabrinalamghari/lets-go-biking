@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8" />
+    <title>À propos - Let's Go Biking</title>
+    <link rel="stylesheet" href="about.css">
+</head>
+<body>
+
+    <app-header></app-header>
+
+    <main class="about-container">
+        <h1>À propos du projet</h1>
+
+        <p>
+            Let's Go Biking est un projet mêlant <strong>services web</strong>,
+            <strong>consommation d'API</strong>, <strong>ActiveMQ</strong> et
+            <strong>cartographie OpenStreetMap</strong>.
+        </p>
+
+        <p>
+            Il permet de calculer des itinéraires combinant marche et vélo en temps réel,
+            en utilisant les données JCDecaux, Nominatim, OSRM et OpenWeather.
+        </p>
+
+        <p>
+            Des notifications météo en temps réel sont envoyées via ActiveMQ
+            pour la destination choisie.
+        </p>
+    </main>
+
+    <app-footer></app-footer>
+
+    <script type="module" src="../../Components/header/header.js"></script>
+    <script type="module" src="../../Components/footer/footer.js"></script>
+
+</body>
+</html>

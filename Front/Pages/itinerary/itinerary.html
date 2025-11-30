@@ -9,68 +9,80 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 </head>
 <body>
-  <app-header></app-header>
+    <app-header></app-header>
 
-  <main class="layout">
-    <aside class="side card">
-      <h2>Itinéraire</h2>
+    <main class="layout">
+        <aside class="side card">
+            <h2>Itinéraire</h2>
 
-      <form id="routeForm" class="route-form">
-        <div class="field">
-          <div id="lbl-start" class="field-label">Départ</div>
-          <address-autocomplete id="start"
-                                aria-labelledby="lbl-start"
-                                placeholder="Adresse de départ"></address-autocomplete>
-        </div>
+            <form id="routeForm" class="route-form">
+                <div class="field">
+                    <div id="lbl-start" class="field-label">Départ</div>
+                    <address-autocomplete id="start"
+                                          aria-labelledby="lbl-start"
+                                          placeholder="Adresse de départ"></address-autocomplete>
+                </div>
 
-        <div class="field">
-          <div id="lbl-end" class="field-label">Arrivée</div>
-          <address-autocomplete id="end"
-                                aria-labelledby="lbl-end"
-                                placeholder="Adresse d'arrivée"></address-autocomplete>
-        </div>
+                <div class="field">
+                    <div id="lbl-end" class="field-label">Arrivée</div>
+                    <address-autocomplete id="end"
+                                          aria-labelledby="lbl-end"
+                                          placeholder="Adresse d'arrivée"></address-autocomplete>
+                </div>
 
-        <div class="actions">
-          <button type="button" id="swapBtn">⇄ Inverser</button>
-          <button type="submit" id="applyBtn">Mettre à jour</button>
-        </div>
-      </form>
+                <div class="actions">
+                    <button type="button" id="swapBtn">⇄ Inverser</button>
+                    <button type="submit" id="applyBtn">Mettre à jour</button>
+                </div>
+            </form>
 
-      <section class="summary">
-        <h3>Récapitulatif</h3>
-        <p>Départ : <strong id="sum-start">—</strong></p>
-        <p>Arrivée : <strong id="sum-end">—</strong></p>
-      </section>
-    </aside>
+            <section class="summary">
+                <h3>Récapitulatif</h3>
+                <p>Départ : <strong id="sum-start">—</strong></p>
+                <p>Arrivée : <strong id="sum-end">—</strong></p>
+            </section>
+            <section class="notifications card">
+                <h3>Alertes temps réel</h3>
 
-    <section class="main card">
-      <div class="tabs">
-        <button class="tab-btn active" id="tab-btn-map" data-tab="map">Carte</button>
-        <button class="tab-btn" id="tab-btn-details" data-tab="details">Détails</button>
-      </div>
+                <div class="notif-filters">
+                    <label><input type="checkbox" id="chk-meteo" checked> Météo</label>
+                    <label><input type="checkbox" id="chk-pollution" checked> Pollution</label>
+                    <label><input type="checkbox" id="chk-bikes" checked> Stations vélo</label>
+                </div>
 
-      <div class="tab-content" id="tab-map">
-          <div class="map">
-              <div id="map" style="height:60vh; border-radius:10px;"></div>
-              <small style="display:block; margin-top:6px; color:#666">
-                  <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
-              </small>
-          </div>
+                <ul id="notif-list"></ul>
+            </section>
+        </aside>
 
-      </div>
+        <section class="main card">
+            <div class="tabs">
+                <button class="tab-btn active" id="tab-btn-map" data-tab="map">Carte</button>
+                <button class="tab-btn" id="tab-btn-details" data-tab="details">Détails</button>
+            </div>
 
-      <div class="tab-content hidden" id="tab-details">
-        <ul id="steps"></ul>
-      </div>
-    </section>
-  </main>
+            <div class="tab-content" id="tab-map">
+                <div class="map">
+                    <div id="map" style="height:60vh; border-radius:10px;"></div>
+                    <small style="display:block; margin-top:6px; color:#666">
+                        <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+                    </small>
+                </div>
 
-  <app-footer></app-footer>
+            </div>
 
-  <script type="module" src="../../Components/header/header.js"></script>
-  <script type="module" src="../../Components/footer/footer.js"></script>
-  <script type="module" src="../../Components/address-autocomplete/address-autocomplete.js"></script>
+            <div class="tab-content hidden" id="tab-details">
+                <ul id="steps"></ul>
+            </div>
+        </section>
+    </main>
 
-  <script type="module" src="itinerary.js"></script>
+    <app-footer></app-footer>
+
+    <script type="module" src="../../Components/header/header.js"></script>
+    <script type="module" src="../../Components/footer/footer.js"></script>
+    <script type="module" src="../../Components/address-autocomplete/address-autocomplete.js"></script>
+ 
+    <script type="module" src="itinerary.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 </body>
 </html>

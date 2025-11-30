@@ -55,7 +55,7 @@ namespace RoutingServiceLib
                                     .FirstOrDefault();
 
                 if (startA == null || dropA == null || pickupB == null || endB == null)
-                    return WalkOnly(walkDirect, "Pas de stations dispo pour un trajet inter-ville.");
+                    return WithWeather(WalkOnly(walkDirect, "Pas de stations dispo pour un trajet inter-ville."), to, d.lat, d.lng);
 
                 var w0 = OsrmClient.RouteFoot(o, startA.position);
                 var bA = OsrmClient.RouteBike(startA.position, dropA.position);
@@ -65,11 +65,16 @@ namespace RoutingServiceLib
 
                 // critère simple : on garde si les accès à pied sont raisonnables
                 if (w0.distance > 2000 || wEnd.distance > 2000)
-                    return WalkOnly(walkDirect, "Stations trop loin de l'origine ou de la destination.");
+                    return WithWeather(
+                        WalkOnly(walkDirect, "Stations trop loin de l'origine ou de la destination."),
+                        to,         
+                        d.lat,
+                        d.lng
+                    );
 
                 var total = w0.duration + bA.duration + wMid.duration + bB.duration + wEnd.duration;
 
-                return new RouteResult
+                return WithWeather(new RouteResult
                 {
                     mode = "bike+walk+bike",
                     totalDistanceMeters = w0.distance + bA.distance + wMid.distance + bB.distance + wEnd.distance,
@@ -82,7 +87,7 @@ namespace RoutingServiceLib
                         MakeLeg("walk", wEnd),
                     },
                     note = $"Inter-ville: départ {contractFrom} ({startA.name} → {dropA.name}), arrivée {contractTo} ({pickupB.name} → {endB.name})."
-                };
+                }, to, d.lat, d.lng);
             }
 
 
@@ -90,7 +95,7 @@ namespace RoutingServiceLib
             Console.WriteLine($"[Route] contractTo   = {contractTo ?? "null"}");
 
             if (string.IsNullOrEmpty(contractFrom) || string.IsNullOrEmpty(contractTo))
-                return WalkOnly(walkDirect, "Aucun contrat JCDecaux trouvé pour l'origine ou la destination.");
+                return WithWeather(WalkOnly(walkDirect, "Aucun contrat JCDecaux trouvé pour l'origine ou la destination."), to, d.lat, d.lng);
 
             // ============================================================
             // CAS 1 : CONTRATS DIFFÉRENTS  => bike + walk(inter-ville) + bike
@@ -114,7 +119,7 @@ namespace RoutingServiceLib
                     .ToList();
 
                 if (startCandidatesA.Count == 0 || exitCandidatesA.Count == 0)
-                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom}).");
+                    return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom})."), to, d.lat, d.lng);
 
                 // on choisit la meilleure paire startA -> exitA selon OSRM
                 JcStation bestStartA = null, bestExitA = null;
@@ -141,7 +146,7 @@ namespace RoutingServiceLib
                 var exitA = bestExitA;
 
                 if (startA == null || exitA == null)
-                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom}).");
+                    return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom})."), to, d.lat, d.lng);
 
                 // candidates arrivée : stations avec vélos proches de exitA / stations avec places proches de destination
                 var entryCandidatesB = stationsD.Where(s => s.available_bikes > 0)
@@ -155,7 +160,7 @@ namespace RoutingServiceLib
                     .ToList();
 
                 if (entryCandidatesB.Count == 0 || endCandidatesB.Count == 0)
-                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo}).");
+                    return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo})."), to, d.lat, d.lng);
 
                 // meilleure paire entryB -> endB
                 JcStation bestEntryB = null, bestEndB = null;
@@ -182,7 +187,7 @@ namespace RoutingServiceLib
                 var endB = bestEndB;
 
                 if (entryB == null || endB == null)
-                    return WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo}).");
+                    return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo})."), to, d.lat, d.lng);
 
                 // legs inter-ville
                 var walk1 = OsrmClient.RouteFoot(o, startA.position);
@@ -195,14 +200,14 @@ namespace RoutingServiceLib
 
                 // garde-fou pour éviter les trajets absurdes
                 if (walkMid.distance > 50000) // 50km à pied entre villes -> on abandonne le mix
-                    return WalkOnly(walkDirect, "Trajet inter-ville trop long pour un mix vélo/marche réaliste.");
+                    return WithWeather(WalkOnly(walkDirect, "Trajet inter-ville trop long pour un mix vélo/marche réaliste."), to, d.lat, d.lng);
 
                 var totalInter =
                     walk1.duration + bike1.duration +
                     walkMid.duration +
                     bike2.duration + walk2.duration;
 
-                return new RouteResult
+                return WithWeather(new RouteResult
                 {
                     mode = "bike+walk+bike",
                     totalDistanceMeters =
@@ -211,16 +216,16 @@ namespace RoutingServiceLib
                         bike2.distance + walk2.distance,
                     totalDurationSeconds = totalInter,
                     legs = new List<RouteLeg>
-            {
-                MakeLeg("walk", walk1),
-                MakeLeg("bike", bike1),
-                MakeLeg("walk", walkMid),
-                MakeLeg("bike", bike2),
-                MakeLeg("walk", walk2),
-            },
+                {
+                    MakeLeg("walk", walk1),
+                    MakeLeg("bike", bike1),
+                    MakeLeg("walk", walkMid),
+                    MakeLeg("bike", bike2),
+                    MakeLeg("walk", walk2),
+                },
                     note = $"Trajet inter-ville ({contractFrom} → {contractTo}). " +
                            $"Stations : {startA.name} → {exitA.name} → {entryB.name} → {endB.name}."
-                };
+                }, to, d.lat, d.lng);
             }
 
             // ============================================================
@@ -243,7 +248,7 @@ namespace RoutingServiceLib
                 .ToList();
 
             if (startCandidates.Count == 0 || endCandidates.Count == 0)
-                return WalkOnly(walkDirect, "Pas de station disponible (vélos/places).");
+                return WithWeather(WalkOnly(walkDirect, "Pas de station disponible (vélos/places)."), to, d.lat, d.lng);
 
             JcStation bestStart = null, bestEnd = null;
             double bestTotal = double.MaxValue;
@@ -271,7 +276,7 @@ namespace RoutingServiceLib
             var end = bestEnd;
 
             if (start == null || end == null)
-                return WalkOnly(walkDirect, "Pas de station disponible (vélos/places).");
+                return WithWeather(WalkOnly(walkDirect, "Pas de station disponible (vélos/places)."), to, d.lat, d.lng);
 
             var walkToBike = OsrmClient.RouteFoot(o, start.position);
             var bikeLeg = OsrmClient.RouteBike(start.position, end.position);
@@ -284,21 +289,21 @@ namespace RoutingServiceLib
                 walkToEnd.distance < 2000;
 
             if (!worthIt)
-                return WalkOnly(walkDirect, "Le vélo n'apporte pas de gain significatif.");
+                return WithWeather(WalkOnly(walkDirect, "Le vélo n'apporte pas de gain significatif."), to, d.lat, d.lng);
 
-            return new RouteResult
+            return WithWeather(new RouteResult
             {
                 mode = "bike+walk",
                 totalDistanceMeters = walkToBike.distance + bikeLeg.distance + walkToEnd.distance,
                 totalDurationSeconds = totalBike,
                 legs = new List<RouteLeg>
-        {
-            MakeLeg("walk", walkToBike),
-            MakeLeg("bike", bikeLeg),
-            MakeLeg("walk", walkToEnd),
-        },
+            {
+                MakeLeg("walk", walkToBike),
+                MakeLeg("bike", bikeLeg),
+                MakeLeg("walk", walkToEnd),
+            },
                 note = $"Stations: départ '{start.name}', arrivée '{end.name}'."
-            };
+            }, to, d.lat, d.lng);
         }
 
         RouteResult WalkOnly(
@@ -353,6 +358,22 @@ namespace RoutingServiceLib
             instructions = r.steps,
             geometry = r.geometry
         };
+
+        private RouteResult WithWeather(RouteResult result, string destinationLabel, double lat, double lon)
+        {
+            try
+            {
+                var info = WeatherClient.GetWeather(lat, lon);
+                ActiveMqNotifier.SendWeatherAlert(destinationLabel, info);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("[Weather] ERROR: " + ex.Message);
+            }
+
+            return result;
+        }
+
 
     }
 }
