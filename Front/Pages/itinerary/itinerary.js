@@ -22,6 +22,24 @@ function initMap() {
     }).addTo(map);
 
     routeLayer = L.layerGroup().addTo(map);
+
+    // ======== LÉGENDE CARTE ========
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "map-legend");
+
+        div.innerHTML = `
+        <h4>Légende</h4>
+        <div><span class="leg-color walk"></span> Marche</div>
+        <div><span class="leg-color bike"></span> Vélo</div>
+    `;
+
+        return div;
+    };
+
+    legend.addTo(map);
+
 }
 
 function setMapMarkers(start, end) {
