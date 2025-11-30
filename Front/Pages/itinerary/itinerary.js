@@ -20,6 +20,24 @@ function initMap() {
     }).addTo(map);
 
     routeLayer = L.layerGroup().addTo(map);
+
+    // ======== LÉGENDE CARTE ========
+    const legend = L.control({ position: "bottomright" });
+
+    legend.onAdd = function () {
+        const div = L.DomUtil.create("div", "map-legend");
+
+        div.innerHTML = `
+        <h4>Légende</h4>
+        <div><span class="leg-color walk"></span> Marche</div>
+        <div><span class="leg-color bike"></span> Vélo</div>
+    `;
+
+        return div;
+    };
+
+    legend.addTo(map);
+
 }
 
 function setMapMarkers(start, end) {
@@ -138,12 +156,48 @@ function formatMeters(m) {
 
 function formatDuration(sec) {
     if (sec == null) return "—";
+
     sec = Math.round(sec);
-    const h = Math.floor(sec / 3600);
-    const min = Math.floor((sec % 3600) / 60);
-    if (h > 0) return `${h} h ${min} min`;
-    return `${min} min`;
+
+    // Moins d'une minute
+    if (sec < 60) return "< 1 min";
+
+    const minTotal = Math.floor(sec / 60);
+    const hTotal = Math.floor(sec / 3600);
+    const days = Math.floor(sec / 86400); // 24h * 3600 sec
+
+    const h = hTotal % 24;
+    const min = minTotal % 60;
+
+    const minStr = min < 10 ? "0" + min : min; // 05, 07…
+
+    // 🔹 Cas < 1h
+    if (days === 0 && h === 0) {
+        return `${min} min`;
+    }
+
+    // 🔹 Cas < 1 jour (format heures/minutes)
+    if (days === 0) {
+        return `${h} h ${minStr} min`;
+    }
+
+    // 🔹 Cas >= 1 jour
+    // Exemples :
+    // 1 jour 3h 5”
+    // 2 jours 0h 40”
+    let result = `${days} j`;
+
+    if (h > 0) {
+        result += ` ${h} h`;
+    }
+
+    if (min > 0) {
+        result += ` ${minStr} min`;
+    }
+
+    return result;
 }
+
 
 function clearSteps() {
     els.steps.innerHTML = "";
