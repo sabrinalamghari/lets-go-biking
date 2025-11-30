@@ -1,6 +1,7 @@
 ﻿using System;
-using System.Globalization;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Web;
@@ -29,6 +30,11 @@ namespace RoutingServiceLib
             if (string.IsNullOrWhiteSpace(q)) return null;
 
             q = Uri.UnescapeDataString(q.Trim()).Replace('+', ' ');
+
+            var gps = TryParseGps(q);
+            if (gps != null)
+                return gps;
+
 
             var parts = q.Split(',');
             if (parts.Length == 2 &&
@@ -110,5 +116,39 @@ namespace RoutingServiceLib
 
             return null;
         }
+    
+
+    private static LatLng TryParseGps(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return null;
+
+            // Normalisation
+            string cleaned = input.Trim()
+                                  .Replace(";", " ")
+                                  .Replace(",", " ")
+                                  .Replace("\t", " ")
+                                  .Replace("  ", " ");
+
+            var parts = cleaned.Split(' ')
+                               .Where(p => !string.IsNullOrWhiteSpace(p))
+                               .ToArray();
+
+            if (parts.Length != 2)
+                return null;
+
+            // Parsing robuste
+            if (!double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double lat))
+                return null;
+            if (!double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double lng))
+                return null;
+
+            // Validation géographique
+            if (lat < -90 || lat > 90) return null;
+            if (lng < -180 || lng > 180) return null;
+
+            return new LatLng { lat = lat, lng = lng };
+        }
+
+
     }
 }
