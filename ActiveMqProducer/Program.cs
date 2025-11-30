@@ -12,23 +12,17 @@ namespace ActiveMqProducer
         {
             Console.WriteLine("=== ActiveMq C# Producer ===");
 
-            // 1) factory vers ActiveMQ (OpenWire, pas WebSocket)
             string brokerUri = "activemq:tcp://localhost:61616";
             IConnectionFactory factory = new ConnectionFactory(brokerUri);
 
-            // 2) créer la connexion
             using (var connection = factory.CreateConnection())
             {
                 connection.Start();
 
-                // 3) créer la session
                 using (var session = connection.CreateSession(AcknowledgementMode.AutoAcknowledge))
                 {
-                    // 4) choisir une QUEUE
-                    //    côté STOMP/JS ce sera "/queue/TP_LetsGo"
                     IDestination destination = session.GetQueue("TP_LetsGo");
 
-                    // 5) créer le producer
                     using (var producer = session.CreateProducer(destination))
                     {
                         producer.DeliveryMode = MsgDeliveryMode.NonPersistent;
@@ -113,7 +107,7 @@ namespace ActiveMqProducer
 
                                 Thread.Sleep(3000);
                             }
-                            Thread.Sleep(2000); // toutes les 2 secondes
+                            Thread.Sleep(2000); 
                         }
                     }
                 }

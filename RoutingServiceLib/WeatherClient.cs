@@ -14,12 +14,10 @@ namespace RoutingServiceLib
 
     public static class WeatherClient
     {
-        // ⚠️ mets bien ta clé SANS \r\n ni espace
         private const string ApiKey = "c1fe54300c468bcd687662703e118868";
 
         public static WeatherInfo GetWeather(double lat, double lon)
         {
-            // coords avec point comme séparateur décimal
             string latStr = lat.ToString(CultureInfo.InvariantCulture);
             string lonStr = lon.ToString(CultureInfo.InvariantCulture);
 
@@ -33,7 +31,6 @@ namespace RoutingServiceLib
                 var serializer = new JavaScriptSerializer();
                 dynamic data = serializer.DeserializeObject(json);
 
-                // Convert.ToDouble / ToInt32 gèrent decimal, double, int, etc.
                 double temp = Convert.ToDouble(data["main"]["temp"], CultureInfo.InvariantCulture);
                 int humidity = Convert.ToInt32(data["main"]["humidity"], CultureInfo.InvariantCulture);
                 string description = data["weather"][0]["description"];

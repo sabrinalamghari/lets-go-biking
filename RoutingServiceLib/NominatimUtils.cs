@@ -70,12 +70,10 @@ namespace RoutingServiceLib
 
                 try
                 {
-                    // 1) via proxy avec mini cache
                     json = _proxy.GetRawTtl(url, 2);
                 }
                 catch
                 {
-                    // 2) fallback direct si le proxy a un souci
                     var resp = http.GetAsync(url).Result;
                     Console.WriteLine($"[Nominatim] HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}");
 

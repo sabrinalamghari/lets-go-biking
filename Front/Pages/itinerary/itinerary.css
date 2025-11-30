@@ -107,17 +107,15 @@ address-autocomplete::part(input) {
 }
 
 
-/* la colonne droite prend une hauteur de viewport */
 .main.card {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 40px); /* 40px ~ padding layout */
+    height: calc(100vh - 40px); 
 }
 
-/* les contenus d'onglet prennent le reste */
 .tab-content {
     flex: 1;
-    overflow: auto; /* ✅ scroll interne automatique */
+    overflow: auto; 
 }
 
 

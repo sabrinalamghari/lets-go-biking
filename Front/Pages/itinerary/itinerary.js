@@ -1,17 +1,15 @@
-﻿// ================= ACTIVE MQ / STOMP =================
+﻿// ACTIVE MQ / STOMP
 let stompClient = null;
 let stompConnected = false;
 let stompSubscription = null;
 
-// Doit matcher la queue définie en C# : TP_LetsGo
 const DESTINATION = "/queue/TP_LetsGo_Weather";
 
-// ================== LEAFLET MAP ==================
+// LEAFLET MAP
 let map = null;
 let routeLayer = null;
 
 function initMap() {
-    // ⚠️ protège contre les doubles appels
     if (map) return;
 
     map = L.map('map').setView([45.75, 4.85], 13); // Lyon par défaut
@@ -92,7 +90,6 @@ function drawRouteOnMap(route) {
 
 
 
-// ================== DOM / UTILS ==================
 const qs = (s, r = document) => r.querySelector(s);
 
 const els = {
@@ -132,7 +129,7 @@ function selectionLabel(sel) {
 }
 
 
-// ================== AFFICHAGE TEXTE ==================
+//AFFICHAGE TEXTE
 function formatMeters(m) {
     if (m == null) return "—";
     if (m < 1000) return `${Math.round(m)} m`;
@@ -193,11 +190,11 @@ function renderRoute(route) {
     });
 
     drawRouteOnMap(route);
-    showTab("map"); // si tu veux switcher automatiquement sur la carte
+    showTab("map"); 
 }
 
 
-// ================== API CALL ==================
+//API CALL 
 async function fetchRoute() {
     const { sSel, eSel } = currentSelections();
     const { s, e } = currentPoints();
@@ -239,7 +236,7 @@ async function fetchRoute() {
 }
 
 
-// ================== TABS ==================
+//TABS 
 function showTab(name) {
     const isMap = name === "map";
     els.tabBtnMap.classList.toggle("active", isMap);
@@ -252,7 +249,7 @@ els.tabBtnMap?.addEventListener("click", () => showTab("map"));
 els.tabBtnDetails?.addEventListener("click", () => showTab("details"));
 
 
-// ================== EVENTS ==================
+// EVENTS
 els.startAc?.addEventListener('address-selected', () => {
     const { s, e } = currentPoints();
     setMapMarkers(s, e);
@@ -285,7 +282,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// ================== INSTRUCTIONS / TRAD ==================
+//INSTRUCTIONS / TRAD 
 const translations = {
     "depart": "Départ",
     "turn": "Tourner",
@@ -323,12 +320,11 @@ function connectToActiveMq() {
 
     const wsUrl = "ws://localhost:61614"; // ActiveMQ WebSocket STOMP
 
-    // Laisse la lib créer le WebSocket elle-même
     stompClient = Stomp.client(wsUrl);
-    stompClient.debug = null; // désactiver les logs verbeux
+    stompClient.debug = null;
 
     stompClient.connect(
-        {}, // headers (login/pass si tu en as)
+        {}, 
         (frame) => {
             console.log("[STOMP] Connecté à ActiveMQ :", frame);
             stompConnected = true;
@@ -369,12 +365,10 @@ function subscribeToQueue() {
 
 
 function handleAlert(alert) {
-    // Si on n'est pas sur une page avec la zone d'alertes, on ne fait rien
     if (!els.notifList) return;
 
     const t = alert.type || "other";
 
-    // on vérifie que les checkbox existent avant de lire .checked
     if (t === "meteo" && els.chkMeteo && !els.chkMeteo.checked) return;
     if (t === "pollution" && els.chkPollution && !els.chkPollution.checked) return;
     if (t === "bike" && els.chkBikes && !els.chkBikes.checked) return;

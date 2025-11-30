@@ -56,7 +56,6 @@ namespace RoutingServiceLib
 
         private static string ComputeSeverity(WeatherInfo info)
         {
-            // règle débile, mais suffisante pour le TP
             if (info.Description != null &&
                 info.Description.IndexOf("orage", StringComparison.OrdinalIgnoreCase) >= 0)
                 return "critical";

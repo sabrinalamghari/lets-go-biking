@@ -19,7 +19,7 @@ namespace RoutingHost
             using (var restHost = new WebServiceHost(typeof(RoutingServiceImpl), restBase))
             using (var soapHost = new ServiceHost(typeof(RoutingServiceImpl), soapBase))
             {
-                // ===== REST JSON (pour le front) =====
+                //REST JSON (pour le front)
                 var restBinding = new WebHttpBinding
                 {
                     CrossDomainScriptAccessEnabled = true
@@ -32,7 +32,7 @@ namespace RoutingHost
                     DefaultOutgoingResponseFormat = WebMessageFormat.Json
                 });
 
-                // ===== SOAP (pour ton heavy client C#) =====
+                // ===== SOAP (pour le heavy client )
                 var soapBinding = new BasicHttpBinding
                 {
                     MaxReceivedMessageSize = 10_000_000
@@ -54,7 +54,7 @@ namespace RoutingHost
                     "mex"
                 );
 
-                // ===== Démarrage =====
+                // Démarrage
                 restHost.Open();
                 soapHost.Open();
 

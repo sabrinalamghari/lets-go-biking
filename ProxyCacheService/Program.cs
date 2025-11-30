@@ -21,7 +21,6 @@ namespace ProxyCacheService
 
                 host.AddServiceEndpoint(typeof(IProxyService), binding, "");
 
-                // exposer le WSDL/MEX pour les tests
                 var smb = new ServiceMetadataBehavior { HttpGetEnabled = true, HttpGetUrl = baseAddress };
                 host.Description.Behaviors.Add(smb);
                 host.AddServiceEndpoint(typeof(IMetadataExchange), MetadataExchangeBindings.CreateMexHttpBinding(), "mex");

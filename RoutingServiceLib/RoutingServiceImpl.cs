@@ -43,11 +43,11 @@ namespace RoutingServiceLib
                                       .FirstOrDefault();
 
                 var dropA = stationsA.Where(s => s.available_bike_stands > 0)
-                                     .OrderBy(s => DistMeters(d, s.position)) // direction vers destination
+                                     .OrderBy(s => DistMeters(d, s.position))
                                      .FirstOrDefault();
 
                 var pickupB = stationsB.Where(s => s.available_bikes > 0)
-                                       .OrderBy(s => DistMeters(o, s.position)) // direction venant de l'origine
+                                       .OrderBy(s => DistMeters(o, s.position))
                                        .FirstOrDefault();
 
                 var endB = stationsB.Where(s => s.available_bike_stands > 0)
@@ -63,7 +63,6 @@ namespace RoutingServiceLib
                 var bB = OsrmClient.RouteBike(pickupB.position, endB.position);
                 var wEnd = OsrmClient.RouteFoot(endB.position, d);
 
-                // critère simple : on garde si les accès à pied sont raisonnables
                 if (w0.distance > 2000 || wEnd.distance > 2000)
                     return WithWeather(
                         WalkOnly(walkDirect, "Stations trop loin de l'origine ou de la destination."),
@@ -97,9 +96,7 @@ namespace RoutingServiceLib
             if (string.IsNullOrEmpty(contractFrom) || string.IsNullOrEmpty(contractTo))
                 return WithWeather(WalkOnly(walkDirect, "Aucun contrat JCDecaux trouvé pour l'origine ou la destination."), to, d.lat, d.lng);
 
-            // ============================================================
             // CAS 1 : CONTRATS DIFFÉRENTS  => bike + walk(inter-ville) + bike
-            // ============================================================
             if (!contractFrom.Equals(contractTo, StringComparison.OrdinalIgnoreCase))
             {
                 Console.WriteLine("[Route] Trajet inter-ville détecté.");
@@ -107,21 +104,19 @@ namespace RoutingServiceLib
                 var stationsO = JcDecauxClient.GetStations(contractFrom);
                 var stationsD = JcDecauxClient.GetStations(contractTo);
 
-                // candidates origine : stations avec vélos / stations avec places
                 var startCandidatesA = stationsO.Where(s => s.available_bikes > 0)
                     .OrderBy(s => DistMeters(o, s.position))
                     .Take(8)
                     .ToList();
 
                 var exitCandidatesA = stationsO.Where(s => s.available_bike_stands > 0)
-                    .OrderBy(s => DistMeters(d, s.position)) // station "sortie" proche de la destination
+                    .OrderBy(s => DistMeters(d, s.position))
                     .Take(8)
                     .ToList();
 
                 if (startCandidatesA.Count == 0 || exitCandidatesA.Count == 0)
                     return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom})."), to, d.lat, d.lng);
 
-                // on choisit la meilleure paire startA -> exitA selon OSRM
                 JcStation bestStartA = null, bestExitA = null;
                 double bestA = double.MaxValue;
 
@@ -148,9 +143,8 @@ namespace RoutingServiceLib
                 if (startA == null || exitA == null)
                     return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’origine ({contractFrom})."), to, d.lat, d.lng);
 
-                // candidates arrivée : stations avec vélos proches de exitA / stations avec places proches de destination
                 var entryCandidatesB = stationsD.Where(s => s.available_bikes > 0)
-                    .OrderBy(s => DistMeters(exitA.position, s.position)) // station "entrée" proche de exitA
+                    .OrderBy(s => DistMeters(exitA.position, s.position)) 
                     .Take(8)
                     .ToList();
 
@@ -162,7 +156,6 @@ namespace RoutingServiceLib
                 if (entryCandidatesB.Count == 0 || endCandidatesB.Count == 0)
                     return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo})."), to, d.lat, d.lng);
 
-                // meilleure paire entryB -> endB
                 JcStation bestEntryB = null, bestEndB = null;
                 double bestB = double.MaxValue;
 
@@ -189,7 +182,6 @@ namespace RoutingServiceLib
                 if (entryB == null || endB == null)
                     return WithWeather(WalkOnly(walkDirect, $"Pas de stations utilisables dans la ville d’arrivée ({contractTo})."), to, d.lat, d.lng);
 
-                // legs inter-ville
                 var walk1 = OsrmClient.RouteFoot(o, startA.position);
                 var bike1 = OsrmClient.RouteBike(startA.position, exitA.position);
 
@@ -198,8 +190,7 @@ namespace RoutingServiceLib
                 var bike2 = OsrmClient.RouteBike(entryB.position, endB.position);
                 var walk2 = OsrmClient.RouteFoot(endB.position, d);
 
-                // garde-fou pour éviter les trajets absurdes
-                if (walkMid.distance > 50000) // 50km à pied entre villes -> on abandonne le mix
+                if (walkMid.distance > 50000) 
                     return WithWeather(WalkOnly(walkDirect, "Trajet inter-ville trop long pour un mix vélo/marche réaliste."), to, d.lat, d.lng);
 
                 var totalInter =
@@ -228,9 +219,7 @@ namespace RoutingServiceLib
                 }, to, d.lat, d.lng);
             }
 
-            // ============================================================
-            // CAS 2 : MÊME CONTRAT  => ton code actuel bike+walk
-            // ============================================================
+            // CAS 2 : MÊME CONTRAT  => bike+walk
             var contractName = contractFrom;
             Console.WriteLine("[Route] contrat choisi = " + contractName);
             Console.WriteLine($"[Route] fetching JCDecaux stations for {contractName}…");

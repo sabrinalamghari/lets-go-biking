@@ -67,9 +67,23 @@ Projet réalisé par : **Sabrina Lamghari** && **Anaïs Lacouture**
 
 # 4. Lancement du projet
 
+## **IMPORTANT — Démarrer ActiveMQ AVANT tout**
+Avant de lancer le script, il faut impérativement que **le broker ActiveMQ soit démarré**.
+---
+
 ## 4.1 Lancement automatisé via `launcher.bat`
 
-Le fichier `launcher.bat` se trouve dans : LetsGoBiking/launcher.bat
+Le fichier se trouve dans :  
+`LetsGoBiking/launcher.bat`
 
+Ce script lance automatiquement :
+1. **ProxyCacheService**
+2. **RoutingHost**
+3. **ActiveMqProducer** (notifications météo)
+
+# 4.2 Lancer le Heavy Client (optionnel)
+
+### Lancer :
+Exécuter depuis Visual Studio.
 
 

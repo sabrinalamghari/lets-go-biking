@@ -10,7 +10,7 @@ namespace ProxyCacheService
 
         public string GetRaw(string url)
         {
-            var res = _cache.Get(url);      // dt_default
+            var res = _cache.Get(url);  
             return res.Content;
         }
 

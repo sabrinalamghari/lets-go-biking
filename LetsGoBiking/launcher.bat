@@ -32,7 +32,7 @@ if exist "%PROXY_PATH%" (
     cd /d "%BASE%\ProxyCacheService\bin\%CONFIG%"
     start "ProxyCacheService" ProxyCacheService.exe
 ) else (
-    echo    ❌ ERREUR : ProxyCacheService.exe introuvable.
+    echo    ERREUR : ProxyCacheService.exe introuvable.
 )
 
 timeout /t 2 /nobreak >nul
@@ -49,7 +49,7 @@ if exist "%ROUTING_PATH%" (
     cd /d "%BASE%\RoutingHost\bin\%CONFIG%"
     start "RoutingHost" RoutingHost.exe
 ) else (
-    echo    ❌ ERREUR : RoutingHost.exe introuvable.
+    echo   ERREUR : RoutingHost.exe introuvable.
 )
 
 timeout /t 2 /nobreak >nul
@@ -76,7 +76,7 @@ for %%D in (
     )
 )
 
-echo    ❌ ERREUR : ActiveMqProducer.exe introuvable dans bin\%CONFIG% ni dans les sous-dossiers netX.
+echo    ERREUR : ActiveMqProducer.exe introuvable dans bin\%CONFIG% ni dans les sous-dossiers netX.
 goto after_mq
 
 :found_mq
@@ -88,52 +88,6 @@ start "ActiveMqProducer" ActiveMqProducer.exe
 :after_mq
 
 timeout /t 2 /nobreak >nul
-
-
-
-REM Front
-echo [4/4] Lancement du Front...
-
-REM 
-
-set FRONT_DIR=%BASE%\Front\bin\%CONFIG%
-set FRONT_DLL=%FRONT_DIR%\Front.dll
-
-echo    Tentative 1 : %FRONT_DLL%
-
-if exist "%FRONT_DLL%" (
-    echo    ✔ Front.dll trouvé dans bin\%CONFIG%
-    goto run_front
-)
-
-set FRONT_DIR=%BASE%\Front\bin
-set FRONT_DLL=%FRONT_DIR%\Front.dll
-
-echo    Tentative 2 : %FRONT_DLL%
-
-if exist "%FRONT_DLL%" (
-    echo    ✔ Front.dll trouvé dans bin\
-    goto run_front
-)
-
-echo    ❌ ERREUR : Front.dll introuvable ni dans bin\%CONFIG% ni dans bin\
-goto end_front
-
-:run_front
-cd /d "%FRONT_DIR%"
-echo    Lancement du front via: dotnet Front.dll
-start "Front" cmd /c "dotnet Front.dll"
-
-REM 
-timeout /t 3 /nobreak >nul
-
-REM 
-start "" "http://localhost:61701/Pages/Accueil/index.html"
-
-goto end_front
-
-
-:end_front
 
 
 echo.

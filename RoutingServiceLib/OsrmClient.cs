@@ -64,7 +64,6 @@ namespace RoutingServiceLib
 
                 var dist = Haversine(a.lat, a.lng, b.lat, b.lng);
 
-                // vitesses fallback réalistes
                 var speed = profile == "bike" ? 4.5 : 1.3;
 
                 return (dist, dist / speed, new List<string> { "Itinéraire approximatif." }, new List<double[]>());

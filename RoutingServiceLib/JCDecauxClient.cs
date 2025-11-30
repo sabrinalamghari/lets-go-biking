@@ -29,12 +29,10 @@ namespace RoutingServiceLib
                     var s = row as Dictionary<string, object>;
                     if (s == null) continue;
 
-                    // position
                     var pos = (Dictionary<string, object>)s["position"];
                     double lat = Convert.ToDouble(pos["latitude"]);
                     double lng = Convert.ToDouble(pos["longitude"]);
 
-                    // name
                     string name = (string)s["name"];
 
                     int bikes = 0, stands = 0;
@@ -93,22 +91,18 @@ namespace RoutingServiceLib
                     var d = row as Dictionary<string, object>;
                     if (d == null) continue;
 
-                    // name
                     string name = d.TryGetValue("name", out var nameObj) && nameObj != null
                         ? nameObj.ToString()
                         : null;
 
-                    // commercial_name
                     string commercial = d.TryGetValue("commercial_name", out var commObj) && commObj != null
                         ? commObj.ToString()
                         : null;
 
-                    // country_code
                     string country = d.TryGetValue("country_code", out var countryObj) && countryObj != null
                         ? countryObj.ToString()
                         : null;
 
-                    // cities (array)
                     var cities = new List<string>();
                     if (d.TryGetValue("cities", out var citiesObj) && citiesObj is object[] arr)
                     {
